@@ -21,10 +21,8 @@ from tensorboardX import SummaryWriter
 from datetime import datetime
 from tqdm import tqdm
 from utils.EvaluationHelper import EvaluationHelper
-import matplotlib.pyplot as plt
 import cv2
 from utils.TorchHelper import TorchHelper
-from MultiProcessingHelper import MultiProcessingHelper
 from utils.ImageHelper import ImageHelper
 
 if torch.cuda.is_available():
@@ -43,7 +41,10 @@ LABEL_NAME_DICT = {0: "Foreground", 1: "Background", 2: "Not-classified"}
 
 def main():
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    parser.add_argument("--work_space_dir", type=str, default="work_space/default")
+    parser.add_argument("--work_space_dir",
+                        type=str,
+                        default="work_space/default",
+                        help="Work space directory for this running. Output will be save to this directory")
     parser.add_argument("--gpu_id", type=int, default=-1, help="The id of gpu to be used. -1 for CPU only.")
 
     parser.add_argument("--n_epoch", type=int, required=True, help="Num of training epochs.")
@@ -63,7 +64,7 @@ def main():
     parser.add_argument("--preload_dataset",
                         type=TypeHelper.str2bool,
                         default=False,
-                        help="True for preloading dataset into memory fastern training if large memory available.")
+                        help="True for preloading dataset into memory fasten training if large memory available.")
 
     parser.add_argument("--log_visualization_every_n_epoch", type=int, default=1)
     parser.add_argument("--log_model_histogram_every_n_epoch", type=int, default=1)
@@ -77,6 +78,8 @@ def main():
     ConfigureHelper.set_seed(opt.seed)
     OSHelper.mkdirs(opt.work_space_dir)
 
+
+    # Save setting
     opt_str = serialize_option(opt, parser)
     print(opt_str)
     try:
@@ -95,8 +98,6 @@ def main():
         print(f"Running with GPU {opt.gpu_id}.")
     else:
         print(f"Running with CPU.")
-
-
 
     image_dsize = ContainerHelper.to_tuple(224)
 
@@ -173,8 +174,7 @@ def main():
         test_assd = {label: 0 for label in LABEL_NAME_DICT}
         sample_count = 0
 
-        # Stop recording gradient for faster inference
-        with torch.no_grad():
+        with torch.no_grad(): # Stop recording gradient for faster inference
             for images, labels in tqdm(test_dataloader,
                                        total=len(test_dataloader),
                                        desc="Testing"):
@@ -263,10 +263,11 @@ def main():
 
         if epoch % opt.log_model_histogram_every_n_epoch == 0:
             for name, param in model.named_parameters():
-                tb_writer.add_histogram(name, param.clone().cpu().numpy(), epoch)
+                tb_writer.add_histogram(name, param.clone().cpu().detach().numpy(), epoch)
 
         if epoch % opt.save_weights_every_n_epoch == 0:
             TorchHelper.save_network(model, OSHelper.path_join(opt.work_space_dir, f"net_{epoch}.pth"))
+
         if epoch == 1:
             if opt.gpu_id >= 0:
                 print(torch.cuda.memory_summary(opt.gpu_id))
