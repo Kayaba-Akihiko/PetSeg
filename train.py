@@ -27,7 +27,6 @@ from utils.TorchHelper import TorchHelper
 from MultiProcessingHelper import MultiProcessingHelper
 from utils.ImageHelper import ImageHelper
 
-
 if torch.cuda.is_available():
     torch.backends.cudnn.deterministic = False
     torch.backends.cudnn.benchmark = True
@@ -36,6 +35,7 @@ if torch.cuda.is_available():
 torch.use_deterministic_algorithms(False)
 if sys.platform.startswith("linux"):
     import resource
+
     resource.setrlimit(resource.RLIMIT_NOFILE, (4096, resource.getrlimit(resource.RLIMIT_NOFILE)[1]))
 
 LABEL_NAME_DICT = {0: "Foreground", 1: "Background", 2: "Not-classified"}
@@ -54,7 +54,7 @@ def main():
                         type=int,
                         default=ConfigureHelper.max_n_workers,
                         help="Num of worker for multi-processing")
-    parser.add_argument("--enable_multprocessing_for_testing batch",
+    parser.add_argument("--enable_multiprocessing_for_testing_batch",
                         type=TypeHelper.str2bool,
                         default=False,
                         help="True for using multi-processing in testing batch. "
@@ -178,30 +178,14 @@ def main():
                 args = []
                 # Iterate over Sample
                 B = images.shape[0]  # Batch size
-                # for i in range(B):
-                #     label = labels[i]  # (H, W)
-                #     pred_label = pred_labels[i]  # (H, W)
-                #     for class_id in LABEL_NAME_DICT:
-                #         binary_label = label == class_id
-                #         binary_pred_label = pred_label == class_id
-                #         args.append((binary_pred_label, binary_label))
-                #
-                #         # calculate DC and ASSD
-                #         dc = EvaluationHelper.dc(binary_label, binary_pred_label)
-                #         try:
-                #             assd = EvaluationHelper.assd(binary_label, binary_pred_label)
-                #         except RuntimeError:
-                #             # In case of all-zero sample
-                #             binary_label[0, 0] = 1
-                #             binary_pred_label[-1, -1] = 1
-                #             assd = EvaluationHelper.assd(binary_label, binary_pred_label)
-                #         # collect evaluation results
-                #         test_dc[class_id] += dc
-                #         test_assd[class_id] += assd
 
                 for i in range(B):
                     args.append((pred_labels[i], labels[i]))
-                for batch_dc, batch_asd in mph.run(args=args, func=_dc_and_assd, n_workers=opt.n_worker):
+                for batch_dc, batch_asd in mph.run(args=args,
+                                                   func=_dc_and_assd,
+                                                   n_workers=opt.n_worker
+                                                   if opt.enable_multiprocessing_for_testing_batch
+                                                   else 0):
                     for class_id in LABEL_NAME_DICT:
                         test_dc[class_id] += batch_dc[class_id]
                         test_assd[class_id] += batch_asd[class_id]
@@ -237,8 +221,6 @@ def main():
                     image = images[0].permute(1, 2, 0).cpu().numpy()
                     label = labels[0].cpu().numpy()
                     pred_label = pred_labels[0].cpu().numpy()
-
-
 
                     # Denormalization
                     image = image * VisualizationDataset.NORMALIZATION_STD + VisualizationDataset.NORMALIZATION_MEAN
