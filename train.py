@@ -25,6 +25,8 @@ from utils.EvaluationHelper import EvaluationHelper
 import matplotlib.pyplot as plt
 import cv2
 from utils.TorchHelper import TorchHelper
+from MultiProcessingHelper import MultiProcessingHelper
+from utils.ImageHelper import ImageHelper
 
 
 if torch.cuda.is_available():
@@ -116,10 +118,11 @@ def main():
     optimizer = Adam(model.decoder.parameters(), lr=opt.lr)
     grad_scaler = torch.cuda.amp.GradScaler()
     criter = torch.nn.CrossEntropyLoss().to(device)
+    mph = MultiProcessingHelper()
 
     tb_writer = SummaryWriter(log_dir=OSHelper.path_join(opt.work_space_dir, "tb_log"))
     epoch = 1
-    for epoch in range(epoch, opt.n_epoch):
+    for epoch in range(epoch, opt.n_epoch + 1):
         print("\nEpoch {} ({})".format(epoch, datetime.now()))
         tb_writer.add_scalar("lr", optimizer.param_groups[0]["lr"], epoch)
 
@@ -167,28 +170,37 @@ def main():
                 labels = labels.cpu().numpy()
                 pred_labels = pred_labels.cpu().numpy()
 
+                args = []
                 # Iterate over Sample
                 B = images.shape[0]  # Batch size
-                for i in range(B):
-                    label = labels[i]  # (H, W)
-                    pred_label = pred_labels[i]  # (H, W)
-                    for class_id in LABEL_NAME_DICT:
-                        binary_label = label == class_id
-                        binary_pred_label = pred_label == class_id
+                # for i in range(B):
+                #     label = labels[i]  # (H, W)
+                #     pred_label = pred_labels[i]  # (H, W)
+                #     for class_id in LABEL_NAME_DICT:
+                #         binary_label = label == class_id
+                #         binary_pred_label = pred_label == class_id
+                #         args.append((binary_pred_label, binary_label))
+                #
+                #         # calculate DC and ASSD
+                #         dc = EvaluationHelper.dc(binary_label, binary_pred_label)
+                #         try:
+                #             assd = EvaluationHelper.assd(binary_label, binary_pred_label)
+                #         except RuntimeError:
+                #             # In case of all-zero sample
+                #             binary_label[0, 0] = 1
+                #             binary_pred_label[-1, -1] = 1
+                #             assd = EvaluationHelper.assd(binary_label, binary_pred_label)
+                #         # collect evaluation results
+                #         test_dc[class_id] += dc
+                #         test_assd[class_id] += assd
 
-                        # calculate DC and ASSD
-                        dc = EvaluationHelper.dc(binary_label, binary_pred_label)
-                        try:
-                            assd = EvaluationHelper.assd(binary_label, binary_pred_label)
-                        except RuntimeError:
-                            # In case of all-zero sample
-                            binary_label[0, 0] = 1
-                            binary_pred_label[-1, -1] = 1
-                            assd = EvaluationHelper.assd(binary_label, binary_pred_label)
-                        # collect evaluation results
-                        test_dc[class_id] += dc
-                        test_assd[class_id] += assd
-                sample_count += 1
+                for i in range(B):
+                    args.append((pred_label, label))
+                for batch_dc, batch_asd in mph.run(args=args, func=_dc_and_assd, n_workers=opt.n_worker):
+                    for class_id in LABEL_NAME_DICT:
+                        test_dc[class_id] += batch_dc[class_id]
+                        test_assd += batch_asd[class_id]
+                sample_count += B
         # Average evaluation results
         for key in LABEL_NAME_DICT:
             test_dc[key] /= sample_count
@@ -201,7 +213,7 @@ def main():
         # Log evaluation results
         msg = "Test DC:"
         for key, val in test_dc.items():
-            msg += f" {key}({val:.3f}%)"
+            msg += f" {key}({val:.3f})"
         print(msg)
         msg = "Test ASSD: "
         for key, val in test_assd.items():
@@ -230,45 +242,44 @@ def main():
                     # Convert to standard data range [0, 255]
                     image = (image * 255.).astype(np.uint8)
 
-                    label = cv2.cvtColor(cv2.applyColorMap(label.astype(np.uint8).squeeze(),
-                                                           cv2.COLORMAP_VIRIDIS),
-                                         cv2.COLOR_BGR2RGB)
-                    pred_label = cv2.cvtColor(cv2.applyColorMap(pred_label.astype(np.uint8).squeeze(),
-                                                                cv2.COLORMAP_VIRIDIS),
-                                              cv2.COLOR_BGR2RGB)
+                    label = ImageHelper.apply_colormap_to_dense_map(label,
+                                                                    max_class_id=max(LABEL_NAME_DICT.keys()))
+                    label = cv2.cvtColor(label, cv2.COLOR_BGR2RGB)
+                    pred_label = ImageHelper.apply_colormap_to_dense_map(pred_label,
+                                                                         max_class_id=max(LABEL_NAME_DICT.keys()))
+                    pred_label = cv2.cvtColor(pred_label, cv2.COLOR_BGR2RGB)
 
                     titles = ['Input Image', 'True Mask', 'Predicted Mask']
                     display_list = [image, label, pred_label]
 
                     for title, image in zip(titles, display_list):
                         tb_writer.add_image(tag=f"e{epoch} {title}", img_tensor=image, dataformats="HWC")
-                    #
-                    #
-                    #
-                    # plt.clf()
-                    # fig = plt.figure(figsize=(15, 15))
-                    #
-                    # for i in range(len(display_list)):
-                    #     plt.subplot(1, len(display_list), i + 1)
-                    #     plt.title(title[i])
-                    #     plt.imshow(display_list[i])
-                    #     plt.axis('off')
-                    # fig.canvas.draw()
-                    # tb_writer.add_image(tag=f"Epoch {epoch}",
-                    #                     img_tensor=np.array(fig.canvas.renderer.buffer_rgba()),
-                    #                     global_step=epoch,
-                    #                     dataformats="HWC")
-                    # plt.close(fig)
-                    # plt.close()
-
                     break
 
-        if epoch & opt.save_weights_every_n_epoch == 0:
+        if epoch % opt.save_weights_every_n_epoch == 0:
             TorchHelper.save_network(model, OSHelper.path_join(opt.work_space_dir, f"net_{epoch}.pth"))
     TorchHelper.save_network(model, OSHelper.path_join(opt.work_space_dir, f"net_{epoch - 1}.pth"))
 
 
-    pass
+def _dc_and_assd(pred_label, label) -> tuple[dict, dict]:
+    test_dc = {label: 0 for label in LABEL_NAME_DICT}
+    test_assd = {label: 0 for label in LABEL_NAME_DICT}
+    for class_id in LABEL_NAME_DICT:
+        binary_label = label == class_id
+        binary_pred_label = pred_label == class_id
+
+        # calculate DC and ASSD
+        dc = EvaluationHelper.dc(binary_label, binary_pred_label)
+        try:
+            assd = EvaluationHelper.assd(binary_label, binary_pred_label)
+        except RuntimeError:
+            # In case of all-zero sample
+            binary_label[0, 0] = 1
+            binary_pred_label[-1, -1] = 1
+            assd = EvaluationHelper.assd(binary_label, binary_pred_label)
+        test_dc[class_id] += dc
+        test_assd[class_id] += assd
+    return test_dc, test_assd
 
 
 if __name__ == '__main__':

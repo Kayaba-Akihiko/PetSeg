@@ -34,7 +34,8 @@ class MultiProcessingHelper:
             func=None,
             desc: str = None,
             mininterval: float = None,
-            maxinterval: float = None):
+            maxinterval: float = None,
+            process_bar=False):
         assert len(args) > 0
         tqdm_args = {"total": len(args), "desc": desc}
         if mininterval is not None:
@@ -44,10 +45,15 @@ class MultiProcessingHelper:
 
         if n_workers > 0:
             with self.__pool_class(n_workers) as pool:
-                return [ret for ret in tqdm(pool.istarmap(MultiProcessingHelper._function_proxy
-                                                          if func is None else func,
-                                                          iterable=args),
-                                            **tqdm_args)]
+                if process_bar:
+                    return [ret for ret in tqdm(pool.istarmap(MultiProcessingHelper._function_proxy
+                                                              if func is None else func,
+                                                              iterable=args),
+                                                **tqdm_args)]
+                else:
+                    return [ret for ret in pool.istarmap(MultiProcessingHelper._function_proxy
+                                                         if func is None else func,
+                                                         iterable=args)]
         else:
             """
                 Version 1
@@ -73,7 +79,10 @@ class MultiProcessingHelper:
             """
                 Version 3
             """
-            return [exec_fun(*item) for item in tqdm(args, **tqdm_args)]
+            if process_bar:
+                return [exec_fun(*item) for item in tqdm(args, **tqdm_args)]
+            else:
+                return [exec_fun(*item) for item in args]
 
 
 def istarmap(self, func, iterable, chunksize=1):
