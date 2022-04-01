@@ -90,7 +90,7 @@ def main():
     ConfigureHelper.set_seed(opt.seed)
     OSHelper.mkdirs(opt.work_space_dir)
 
-    image_dsize = ContainerHelper.to_tuple(224)
+    image_dsize = ContainerHelper.to_tuple(128)
 
     device = torch.device(opt.gpu_id if opt.gpu_id >= 0 else "cpu")
     # if opt.gpu_id >= 0:
