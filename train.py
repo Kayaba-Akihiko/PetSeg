@@ -58,7 +58,8 @@ def main():
                         type=TypeHelper.str2bool,
                         default=False,
                         help="True for using multi-processing in testing batch. "
-                             "Useful for fastern the testing when large batch_size applied (e.g., 400)")
+                             "Useful for fastern the testing when large batch_size and image size applied "
+                             "(e.g., 400 and 256x256).")
 
     parser.add_argument("--data_root",
                         type=str,
