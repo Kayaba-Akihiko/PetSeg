@@ -195,7 +195,7 @@ def main():
                 #         test_assd[class_id] += assd
 
                 for i in range(B):
-                    args.append((pred_label, label))
+                    args.append((pred_labels[i], labels[i]))
                 for batch_dc, batch_asd in mph.run(args=args, func=_dc_and_assd, n_workers=opt.n_worker):
                     for class_id in LABEL_NAME_DICT:
                         test_dc[class_id] += batch_dc[class_id]
