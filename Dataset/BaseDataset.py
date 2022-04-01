@@ -65,10 +65,12 @@ class BaseDataset(Dataset, ABC):
             mph = MultiProcessingHelper()
             self._images = mph.run(args=[(image,) for image in self._images],
                                    func=self._load_image,
+                                   process_bar=True,
                                    n_workers=n_preload_worker,
                                    desc=f"Pre-loading {split} images")
             self._segs = mph.run(args=[(seg,) for seg in self._segs],
                                  func=self._load_seg,
+                                 process_bar=True,
                                  n_workers=n_preload_worker,
                                  desc=f"Pre-loading {split} labels")
             self.__image_load_func = self._identity
