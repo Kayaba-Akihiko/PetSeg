@@ -74,6 +74,8 @@ def main():
     opt = parser.parse_args()
     opt.work_space_dir = OSHelper.format_path(opt.work_space_dir)
     opt.data_root = OSHelper.format_path(opt.data_root)
+    ConfigureHelper.set_seed(opt.seed)
+    OSHelper.mkdirs(opt.work_space_dir)
 
     opt_str = serialize_option(opt, parser)
     print(opt_str)
@@ -94,8 +96,7 @@ def main():
     else:
         print(f"Running with CPU.")
 
-    ConfigureHelper.set_seed(opt.seed)
-    OSHelper.mkdirs(opt.work_space_dir)
+
 
     image_dsize = ContainerHelper.to_tuple(224)
 
