@@ -63,7 +63,6 @@ def main():
                         default=False,
                         help="True for preloading dataset into memory fastern training if large memory available.")
 
-
     parser.add_argument("--log_visualization_every_n_epoch", type=int, default=1)
     parser.add_argument("--save_weights_every_n_epoch", type=int, default=1)
 
@@ -202,11 +201,12 @@ def main():
         # Log evaluation results
         msg = "Test DC:"
         for key, val in test_dc.items():
-            msg += f" {key}({val:.3f})"
+            msg += f" {key}({val:.3f}%)"
         print(msg)
         msg = "Test ASSD: "
         for key, val in test_assd.items():
             msg += f" {key}({val:.3f})"
+        print(msg)
         tb_writer.add_scalars("Test DC", test_dc, epoch)
         tb_writer.add_scalars("Test ASSD", test_assd, epoch)
 
@@ -215,9 +215,13 @@ def main():
             with torch.no_grad():
                 for images, labels in visualization_dataloader:
                     images = images.to(device)  # (B, 3, H, W)
-                    pred_labels = torch.argmax(model(images), dim=1).cpu().numpy()  # (B, H, W)
+                    pred_labels = torch.argmax(model(images), dim=1)  # (B, H, W)
 
                     image = images[0].permute(1, 2, 0).cpu().numpy()
+                    label = labels[0].cpu().numpy()
+                    pred_label = pred_labels[0].cpu().numpy()
+
+
 
                     # Denormalization
                     image = image * VisualizationDataset.NORMALIZATION_STD + VisualizationDataset.NORMALIZATION_MEAN
@@ -226,10 +230,12 @@ def main():
                     # Convert to standard data range [0, 255]
                     image = (image * 255.).astype(np.uint8)
 
-                    label = labels[0].cpu().numpy().astype(np.uint8).squeeze()
-                    label = cv2.cvtColor(cv2.applyColorMap(label, cv2.COLORMAP_VIRIDIS), cv2.COLOR_BGR2RGB)
-                    pred_label = pred_labels[0].cpu().numpy().astype(np.uint8).squeeze()
-                    pred_label = cv2.cvtColor(cv2.applyColorMap(pred_label, cv2.COLORMAP_VIRIDIS), cv2.COLOR_BGR2RGB)
+                    label = cv2.cvtColor(cv2.applyColorMap(label.astype(np.uint8).squeeze(),
+                                                           cv2.COLORMAP_VIRIDIS),
+                                         cv2.COLOR_BGR2RGB)
+                    pred_label = cv2.cvtColor(cv2.applyColorMap(pred_label.astype(np.uint8).squeeze(),
+                                                                cv2.COLORMAP_VIRIDIS),
+                                              cv2.COLOR_BGR2RGB)
 
                     titles = ['Input Image', 'True Mask', 'Predicted Mask']
                     display_list = [image, label, pred_label]
