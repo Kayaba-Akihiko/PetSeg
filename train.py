@@ -36,7 +36,7 @@ if sys.platform.startswith("linux"):
 
     resource.setrlimit(resource.RLIMIT_NOFILE, (4096, resource.getrlimit(resource.RLIMIT_NOFILE)[1]))
 
-LABEL_NAME_DICT = {0: "Foreground", 1: "Background", 2: "Not-classified"}
+
 
 
 def main():
@@ -171,8 +171,8 @@ def main():
 
         # Test one epoch
         # Prepare test result container
-        test_dc = {label: 0 for label in LABEL_NAME_DICT}
-        test_assd = {label: 0 for label in LABEL_NAME_DICT}
+        test_dc = {label: 0 for label in TrainingDataset.LABEL_NAME_DICT}
+        test_assd = {label: 0 for label in TrainingDataset.LABEL_NAME_DICT}
         sample_count = 0
 
         with torch.no_grad(): # Stop recording gradient for faster inference
@@ -192,7 +192,7 @@ def main():
                 for i in range(B):
                     label = labels[i]
                     pred_label = pred_labels[i]
-                    for class_id in LABEL_NAME_DICT:
+                    for class_id in TrainingDataset.LABEL_NAME_DICT:
                         binary_label = label == class_id
                         binary_pred_label = pred_label == class_id
 
@@ -210,11 +210,11 @@ def main():
 
                 sample_count += B
         # Average evaluation results
-        for key in LABEL_NAME_DICT:
+        for key in TrainingDataset.LABEL_NAME_DICT:
             test_dc[key] /= sample_count
             test_assd[key] /= sample_count
-        test_dc = {LABEL_NAME_DICT[key]: val for key, val in test_dc.items()}
-        test_assd = {LABEL_NAME_DICT[key]: val for key, val in test_assd.items()}
+        test_dc = {TrainingDataset.LABEL_NAME_DICT[key]: val for key, val in test_dc.items()}
+        test_assd = {TrainingDataset.LABEL_NAME_DICT[key]: val for key, val in test_assd.items()}
         test_dc["Mean"] = sum(test_dc.values()) / len(test_dc)
         test_assd["Mean"] = sum(test_assd.values()) / len(test_assd)
 
@@ -248,11 +248,13 @@ def main():
                     # Convert to standard data range [0, 255]
                     image = (image * 255.).astype(np.uint8)
 
+                    max_class_id = max(TrainingDataset.LABEL_NAME_DICT.keys())
+
                     label = ImageHelper.apply_colormap_to_dense_map(label,
-                                                                    max_class_id=max(LABEL_NAME_DICT.keys()))
+                                                                    max_class_id=max_class_id)
                     label = cv2.cvtColor(label, cv2.COLOR_BGR2RGB)
                     pred_label = ImageHelper.apply_colormap_to_dense_map(pred_label,
-                                                                         max_class_id=max(LABEL_NAME_DICT.keys()))
+                                                                         max_class_id=max_class_id)
                     pred_label = cv2.cvtColor(pred_label, cv2.COLOR_BGR2RGB)
 
                     titles = ['Input Image', 'True Mask', 'Predicted Mask']
@@ -264,7 +266,8 @@ def main():
 
         if epoch % opt.log_model_histogram_every_n_epoch == 0:
             for name, param in model.named_parameters():
-                tb_writer.add_histogram(name, param.clone().cpu().detach().numpy(), epoch)
+                if name.startswith("decoder"):
+                    tb_writer.add_histogram(name, param.clone().cpu().detach().numpy(), epoch)
 
         if epoch % opt.save_weights_every_n_epoch == 0:
             TorchHelper.save_network(model, OSHelper.path_join(opt.work_space_dir, f"net_{epoch}.pth"))

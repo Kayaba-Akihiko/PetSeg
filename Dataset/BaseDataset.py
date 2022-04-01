@@ -33,6 +33,8 @@ class BaseDataset(Dataset, ABC):
     NORMALIZATION_MEAN = [0.456, 0.406, 0.485]  # (H, W, C)
     NORMALIZATION_STD = [0.224, 0.225, 0.229]  # (H, W, C)
 
+    LABEL_NAME_DICT = {0: "Foreground", 1: "Background", 2: "Not-classified"}
+
     def __init__(self,
                  data_root: str,
                  split: str,
