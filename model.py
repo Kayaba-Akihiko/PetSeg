@@ -21,7 +21,18 @@ class UNet(nn.Module):
 
         self.decoder = []
         for i in reversed(range(len(skip_layer_nc))):
-            layer = self._build_upsampler(skip_layer_nc[i] + upsampler_nc[i + 1], upsampler_nc[i])
+            input_nc = skip_layer_nc[i] + upsampler_nc[i + 1]
+            output_nc = upsampler_nc[i]
+            if i == 0:
+                layer = nn.ConvTranspose2d(in_channels=input_nc,
+                                           out_channels=output_nc,
+                                           kernel_size=3,
+                                           stride=2,
+                                           padding=1,
+                                           output_padding=1,
+                                           bias=True)
+            else:
+                layer = self._up_bn_relu(input_nc, output_nc)
             self.decoder.append(layer)
         self.decoder = nn.ModuleList(self.decoder)
         TorchHelper.init_weights(self.decoder)
@@ -33,7 +44,7 @@ class UNet(nn.Module):
         #                                  self._build_upsampler(64 + 16, n_class)])
 
     @staticmethod
-    def _build_upsampler(input_nc, output_nc):
+    def _up_bn_relu(input_nc, output_nc):
         return nn.Sequential(nn.ConvTranspose2d(in_channels=input_nc,
                                                 out_channels=output_nc,
                                                 kernel_size=3,
