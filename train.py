@@ -151,12 +151,13 @@ def main():
             image, label = image.to(device), label.to(device)
 
             # Calculate loss
-            with torch.cuda.amp.autocast():
+            with torch.cuda.amp.autocast():  # Automatic Mixed Precision
                 pred_logits = model(image)
                 loss = criter(pred_logits, label)
 
             # Standard steps for backpropagation
             optimizer.zero_grad()
+            # Automatic Mixed Precision
             grad_scaler.scale(loss).backward()
             grad_scaler.step(optimizer)
             grad_scaler.update()
