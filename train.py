@@ -75,6 +75,7 @@ def main():
 
     if opt.gpu_id >= 0:
         if not torch.cuda.is_available():
+            torch.cuda.init()
             raise RuntimeError(f"GPU {opt.gpu_id} is not available.")
         print(f"Running with GPU {opt.gpu_id}.")
     else:
