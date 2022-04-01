@@ -50,15 +50,21 @@ def main():
     parser.add_argument("--batch_size", type=int, default=1)
     parser.add_argument("--lr", type=float, default=1e-3, help="Learning rate")
 
+    parser.add_argument("--n_worker",
+                        type=int,
+                        default=ConfigureHelper.max_n_workers,
+                        help="Num of worker for multi-processing")
+    parser.add_argument("--enable_multprocessing_for_testing batch",
+                        type=TypeHelper.str2bool,
+                        default=False,
+                        help="True for using multi-processing in testing batch. "
+                             "Useful for fastern the testing when large batch_size applied (e.g., 400)")
+
     parser.add_argument("--data_root",
                         type=str,
                         default="work_space/data",
                         help="Data root for storing Oxford Pet Data. "
                              "Files will be downloaded to the folder if data is not found.")
-    parser.add_argument("--n_worker",
-                        type=int,
-                        default=ConfigureHelper.max_n_workers,
-                        help="Num of worker for multi-processing")
     parser.add_argument("--preload_dataset",
                         type=TypeHelper.str2bool,
                         default=False,

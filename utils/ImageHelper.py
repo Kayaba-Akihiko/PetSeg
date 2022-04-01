@@ -203,8 +203,8 @@ class ImageHelper(ABC):
     @classmethod
     def apply_colormap_to_dense_map(cls, dense_mape, min_class_id=0, max_class_id=255, color_map=cv2.COLORMAP_VIRIDIS):
         dense_map = cls.min_max_scale(dense_mape.squeeze().astype(float),
-                                      True,
+                                      False,
                                       min_val=min_class_id,
-                                      max_val=max_class_id)
+                                      max_val=max_class_id) * 255.
         dense_map = cv2.applyColorMap(dense_map.astype(np.uint8), color_map)
         return dense_map
