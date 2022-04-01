@@ -172,7 +172,7 @@ def main():
 
                     image = images[0].permute(1, 2, 0).cpu().numpy()
                     image = image * VisualizationDataset.NORMALIZATION_STD + VisualizationDataset.NORMALIZATION_MEAN
-                    image = image.clamp(0., 1.)
+                    image = image.clip(0., 1.)
                     image = (image * 255.).astype(np.uint8)
 
                     label = labels[0].cpu().numpy()
