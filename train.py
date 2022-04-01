@@ -58,8 +58,8 @@ def main():
                         type=TypeHelper.str2bool,
                         default=False,
                         help="True for using multi-processing in testing batch. "
-                             "Useful for fastern the testing when large batch_size and image size applied "
-                             "(e.g., 400 and 256x256).")
+                             "Useful for fasten the testing when large batch_size and image size are applied "
+                             "(e.g., batch_size = 400 and image_size = 256x256).")
 
     parser.add_argument("--data_root",
                         type=str,
@@ -91,7 +91,7 @@ def main():
     ConfigureHelper.set_seed(opt.seed)
     OSHelper.mkdirs(opt.work_space_dir)
 
-    image_dsize = ContainerHelper.to_tuple(128)
+    image_dsize = ContainerHelper.to_tuple(224)
 
     device = torch.device(opt.gpu_id if opt.gpu_id >= 0 else "cpu")
     # if opt.gpu_id >= 0:
