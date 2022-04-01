@@ -87,8 +87,8 @@ def main():
     image_dsize = ContainerHelper.to_tuple(224)
 
     device = torch.device(opt.gpu_id if opt.gpu_id >= 0 else "cpu")
-    if opt.gpu_id >= 0:
-        print(torch.cuda.memory_summary(opt.gpu_id))
+    # if opt.gpu_id >= 0:
+    #     print(torch.cuda.memory_summary(opt.gpu_id))
 
     model = UNet(n_class=len(LABEL_NAME_DICT)).to(device)
 
