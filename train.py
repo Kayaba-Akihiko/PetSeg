@@ -54,12 +54,6 @@ def main():
                         type=int,
                         default=ConfigureHelper.max_n_workers,
                         help="Num of worker for multi-processing")
-    parser.add_argument("--enable_multiprocessing_for_testing_batch",
-                        type=TypeHelper.str2bool,
-                        default=False,
-                        help="True for using multi-processing in testing batch. "
-                             "Useful for fasten the testing when large batch_size and image size are applied "
-                             "(e.g., batch_size = 400 and image_size = 256x256).")
 
     parser.add_argument("--data_root",
                         type=str,
@@ -72,6 +66,7 @@ def main():
                         help="True for preloading dataset into memory fastern training if large memory available.")
 
     parser.add_argument("--log_visualization_every_n_epoch", type=int, default=1)
+    parser.add_argument("--log_model_histogram_every_n_epoch", type=int, default=1)
     parser.add_argument("--save_weights_every_n_epoch", type=int, default=1)
 
     parser.add_argument("--seed", type=int, default=0, help="Random seed.")
@@ -80,10 +75,21 @@ def main():
     opt.work_space_dir = OSHelper.format_path(opt.work_space_dir)
     opt.data_root = OSHelper.format_path(opt.data_root)
 
+    opt_str = serialize_option(opt, parser)
+    print(opt_str)
+    try:
+        with open(OSHelper.path_join(opt.work_space_dir, "opt.txt"), 'wt') as opt_file:
+            opt_file.write(opt_str)
+            opt_file.write('\n')
+    except PermissionError as error:
+        print("permission error {}".format(error))
+        pass
+
     if opt.gpu_id >= 0:
         if not torch.cuda.is_available():
-            torch.cuda.init()
             raise RuntimeError(f"GPU {opt.gpu_id} is not available.")
+        else:
+            torch.cuda.init()
         print(f"Running with GPU {opt.gpu_id}.")
     else:
         print(f"Running with CPU.")
@@ -94,10 +100,11 @@ def main():
     image_dsize = ContainerHelper.to_tuple(224)
 
     device = torch.device(opt.gpu_id if opt.gpu_id >= 0 else "cpu")
-    # if opt.gpu_id >= 0:
-    #     print(torch.cuda.memory_summary(opt.gpu_id))
 
     model = UNet(n_class=len(LABEL_NAME_DICT)).to(device)
+    with open(OSHelper.path_join(opt.work_space_dir, "net.txt"), 'wt') as opt_file:
+        opt_file.write(str(model))
+        opt_file.write('\n')
 
     # Preparing datasets
     training_dataloader = TrainingDataset(data_root=opt.data_root,
@@ -124,9 +131,10 @@ def main():
     optimizer = Adam(model.decoder.parameters(), lr=opt.lr)
     grad_scaler = torch.cuda.amp.GradScaler()
     criter = torch.nn.CrossEntropyLoss().to(device)
-    mph = MultiProcessingHelper()
+    # mph = MultiProcessingHelper()
 
     tb_writer = SummaryWriter(log_dir=OSHelper.path_join(opt.work_space_dir, "tb_log"))
+    tb_writer.add_graph(model, torch.randn(2, 3, *image_dsize[:: -1], device=device))
     epoch = 1
     for epoch in range(epoch, opt.n_epoch + 1):
         print("\nEpoch {} ({})".format(epoch, datetime.now()))
@@ -176,20 +184,28 @@ def main():
                 labels = labels.cpu().numpy()
                 pred_labels = pred_labels.cpu().numpy()
 
-                args = []
                 # Iterate over Sample
                 B = images.shape[0]  # Batch size
 
                 for i in range(B):
-                    args.append((pred_labels[i], labels[i]))
-                for batch_dc, batch_asd in mph.run(args=args,
-                                                   func=_dc_and_assd,
-                                                   n_workers=opt.n_worker
-                                                   if opt.enable_multiprocessing_for_testing_batch
-                                                   else 0):
+                    label = labels[i]
+                    pred_label = pred_labels[i]
                     for class_id in LABEL_NAME_DICT:
-                        test_dc[class_id] += batch_dc[class_id]
-                        test_assd[class_id] += batch_asd[class_id]
+                        binary_label = label == class_id
+                        binary_pred_label = pred_label == class_id
+
+                        # calculate DC and ASSD
+                        dc = EvaluationHelper.dc(binary_label, binary_pred_label)
+                        try:
+                            assd = EvaluationHelper.assd(binary_label, binary_pred_label)
+                        except RuntimeError:
+                            # In case of all-zero sample
+                            binary_label[0, 0] = 1
+                            binary_pred_label[-1, -1] = 1
+                            assd = EvaluationHelper.assd(binary_label, binary_pred_label)
+                        test_dc[class_id] += dc
+                        test_assd[class_id] += assd
+
                 sample_count += B
         # Average evaluation results
         for key in LABEL_NAME_DICT:
@@ -244,30 +260,29 @@ def main():
                         tb_writer.add_image(tag=f"e{epoch} {title}", img_tensor=image, dataformats="HWC")
                     break
 
+        if epoch % opt.log_model_histogram_every_n_epoch == 0:
+            for name, param in model.named_parameters():
+                tb_writer.add_histogram(name, param.clone().cpu().numpy(), epoch)
+
         if epoch % opt.save_weights_every_n_epoch == 0:
             TorchHelper.save_network(model, OSHelper.path_join(opt.work_space_dir, f"net_{epoch}.pth"))
+        if epoch == 1:
+            if opt.gpu_id >= 0:
+                print(torch.cuda.memory_summary(opt.gpu_id))
     TorchHelper.save_network(model, OSHelper.path_join(opt.work_space_dir, f"net_{epoch - 1}.pth"))
 
 
-def _dc_and_assd(pred_label, label) -> tuple[dict, dict]:
-    test_dc = {label: 0 for label in LABEL_NAME_DICT}
-    test_assd = {label: 0 for label in LABEL_NAME_DICT}
-    for class_id in LABEL_NAME_DICT:
-        binary_label = label == class_id
-        binary_pred_label = pred_label == class_id
-
-        # calculate DC and ASSD
-        dc = EvaluationHelper.dc(binary_label, binary_pred_label)
-        try:
-            assd = EvaluationHelper.assd(binary_label, binary_pred_label)
-        except RuntimeError:
-            # In case of all-zero sample
-            binary_label[0, 0] = 1
-            binary_pred_label[-1, -1] = 1
-            assd = EvaluationHelper.assd(binary_label, binary_pred_label)
-        test_dc[class_id] += dc
-        test_assd[class_id] += assd
-    return test_dc, test_assd
+def serialize_option(opt: argparse.Namespace, parser: argparse.ArgumentParser) -> str:
+    message = '----------------- Options ---------------\n'
+    for k, v in sorted(vars(opt).items()):
+        comment = ''
+        if parser is not None:
+            default = parser.get_default(k)
+            if v != default and default is not None:
+                comment = '\t[default: %s]' % str(default)
+        message += '{:>25}: {:<30}{}\n'.format(str(k), str(v), comment)
+    message += '----------------- End -------------------'
+    return message
 
 
 if __name__ == '__main__':
