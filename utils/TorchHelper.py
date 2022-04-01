@@ -14,78 +14,9 @@ from typing import Optional
 import copy
 from .TypeHelper import TypeHelper
 
-
-
 class TorchHelper:
 
 
-    @staticmethod
-    def get_scheduler(optimizer, opt: Namespace, epochs=None, steps_per_epoch=None):
-
-        """Return a learning rate scheduler
-
-        Parameters:
-            optimizer          -- the optimizer of the network
-            opt (option class) -- stores all the experiment flags; needs to be a subclass of BaseOptions．　
-                                  opt.lr_policy is the name of learning rate policy: linear | step | plateau | cosine
-
-        For 'linear', we keep the same learning rate for the first <opt.n_epochs> epochs
-        and linearly decay the rate to zero over the next <opt.n_epochs_decay> epochs.
-        For other schedulers (step, plateau, and cosine), we use the default PyTorch schedulers.
-        See https://pytorch.org/docs/stable/optim.html for more details.
-        """
-
-        if opt.lr_policy == 'linear':
-            def lambda_rule(epoch):
-                lr_l = 1.0 - max(0, epoch - opt.n_epochs) / float(opt.n_epochs_decay + 1)
-                return lr_l
-            scheduler = lr_scheduler.LambdaLR(optimizer, lr_lambda=lambda_rule)
-        elif opt.lr_policy == 'cosine':
-            scheduler = lr_scheduler.CosineAnnealingLR(optimizer, T_max=opt.n_epochs, eta_min=0)
-        elif opt.lr_policy == "cosine_warm":
-            scheduler = lr_scheduler.CosineAnnealingWarmRestarts(optimizer,
-                                                                 T_0=opt.T_0,
-                                                                 T_mult=opt.T_mult)
-        elif opt.lr_policy == "multi_step":
-            scheduler = lr_scheduler.MultiStepLR(optimizer,
-                                                 milestones=opt.milestones,
-                                                 gamma=opt.milestones_gamma)
-        elif opt.lr_policy == "one_cycle":
-            assert epochs is not None and steps_per_epoch is not None
-            scheduler = lr_scheduler.OneCycleLR(optimizer,
-                                                max_lr=opt.max_lr,
-                                                epochs=epochs,
-                                                steps_per_epoch=steps_per_epoch)
-        else:
-            return NotImplementedError('learning rate policy [%s] is not implemented', opt.lr_policy)
-        return scheduler
-
-    @staticmethod
-    def modify_lr_policy_parser(parser: ArgumentParser, args: Sequence[str]) -> ArgumentParser:
-        parser.add_argument("--lr_policy", type=str, default="linear", choices=["linear",
-                                                                                "cosine",
-                                                                                "cosine_warm",
-                                                                                "multi_step",
-                                                                                "one_cycle"])
-        opt, _ = parser.parse_known_args(args=args)
-        if opt.lr_policy == "linear":
-            parser.add_argument("--n_epochs_decay", type=int, required=True)
-        elif opt.lr_policy == "cosine_warm":
-            parser.add_argument("--T_0", type=int, default=10)
-            parser.add_argument("--T_mult", type=int, default=2)
-        elif opt.lr_policy == "multi_step":
-            parser.add_argument("--milestones", type=TypeHelper.str2intlist, required=True)
-            parser.add_argument("--milestones_gamma", type=float, default=0.1)
-        elif opt.lr_policy == "one_cycle":
-            parser.add_argument("--max_lr", type=float, required=True)
-        return parser
-
-    @staticmethod
-    def parallelize_net(net: torch.nn.Module or torch.nn.DataParallel, gpu_ids: Sequence[int]):
-        if isinstance(net, torch.nn.DataParallel):
-            return torch.nn.DataParallel(net.module, gpu_ids)
-        assert isinstance(net, torch.nn.Module)
-        return torch.nn.DataParallel(net, gpu_ids)
 
     @staticmethod
     def load_network_by_path(net: torch.nn.Module or torch.nn.DataParallel,
@@ -102,13 +33,6 @@ class TorchHelper:
                 print(msg + " skipped.")
             return missing_keys
         pretrained_dict = torch.load(path, map_location=str(device))
-
-        new_pretrained_dict = OrderedDict()
-        for name, val in pretrained_dict.items():
-            if name.startswith('_model'):
-                name = name[1:]
-            new_pretrained_dict[name] = val
-        pretrained_dict = new_pretrained_dict
 
         if strict:
             load_net.load_state_dict(pretrained_dict, strict=strict)
@@ -144,69 +68,6 @@ class TorchHelper:
         else:
             torch.save(net.module.state_dict(), path)
         print(path, "wrote.")
-
-
-    @staticmethod
-    def data_to_device(data: dict,
-                       device: torch.device,
-                       torch_dtype=torch.float32,
-                       in_place=True) -> dict:
-        # if in_place:
-        #     re_data = data
-        # else:
-        #     re_data = {}
-        #     for key, img_dao in data.items():
-        #         re_data[key] = ImageDAO(**(img_dao.to_dict()), copy_data=True)
-        #
-        # for key, img_dao in re_data.items():
-        #     img_dao: ImageDAO
-        #     if img_dao.img_data is not None:
-        #         img_dao.img_data = img_dao.img_data.to(device)
-        #         img_dao.img_data.requires_grad = True
-        #     for info_key, val in img_dao.case_info.items():
-        #         img_dao.case_info[info_key] = val.to(device)
-
-        if in_place:
-            re_data = data
-        else:
-            re_data = copy.deepcopy(data)
-
-        for key, val in re_data.items():
-            if isinstance(val, torch.Tensor):
-                re_data[key] = val.to(torch_dtype).to(device)
-
-        return re_data
-
-
-    @staticmethod
-    def set_requires_grad(nets, requires_grad=False):
-        """Set requies_grad=Fasle for all the networks to avoid unnecessary computations
-        Parameters:
-            nets (network list)   -- a list of networks
-            requires_grad (bool)  -- whether the networks require gradients or not
-        """
-        if not isinstance(nets, list):
-            nets = [nets]
-        for net in nets:
-            if net is not None:
-                for param in net.parameters():
-                    param.requires_grad = requires_grad
-
-    @staticmethod
-    def trigger_model(model: torch.nn.Module or torch.nn.DataParallel, train: bool):
-        if isinstance(model, torch.nn.Module):
-            trig_model = model
-        else:
-            trig_model = model.module
-        if train:
-            trig_model.train()
-        else:
-            trig_model.eval()
-
-    @staticmethod
-    def trigger_models(nets, train: bool):
-        for net in nets:
-            TorchHelper.trigger_model(model=net, train=train)
 
     @staticmethod
     def init_net(net: torch.nn.Module,

@@ -6,8 +6,7 @@
 import torch.nn as nn
 import torch
 import torchvision.models as models
-import itertools
-from collections.abc import Iterator
+from utils.TorchHelper import TorchHelper
 
 
 class UNet(nn.Module):
@@ -25,6 +24,7 @@ class UNet(nn.Module):
             layer = self._build_upsampler(skip_layer_nc[i] + upsampler_nc[i + 1], upsampler_nc[i])
             self.decoder.append(layer)
         self.decoder = nn.ModuleList(self.decoder)
+        self.decoder = TorchHelper.init_weights(self.decoder)
 
         # self.upsamplers = nn.ModuleList([self._build_upsampler(960, 512),
         #                                  self._build_upsampler(512 + 112, 256),

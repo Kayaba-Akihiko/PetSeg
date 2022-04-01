@@ -24,6 +24,7 @@ from tqdm import tqdm
 from utils.EvaluationHelper import EvaluationHelper
 import matplotlib.pyplot as plt
 import cv2
+from utils.TorchHelper import TorchHelper
 
 
 if torch.cuda.is_available():
@@ -42,15 +43,29 @@ LABEL_NAME_DICT = {0: "Foreground", 1: "Background", 2: "Not-classified"}
 def main():
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument("--work_space_dir", type=str, default="work_space/default")
-    parser.add_argument("--n_worker", type=int, default=ConfigureHelper.max_n_workers)
-    parser.add_argument("--data_root", type=str, default="work_space/data")
-    parser.add_argument("--gpu_id", type=int, default=-1)
-    parser.add_argument("--preload_dataset", type=TypeHelper.str2bool, default=False)
-    parser.add_argument("--batch_size", type=int, default=1)
-    parser.add_argument("--log_visualization_every_n_epoch", type=int, default=1)
+    parser.add_argument("--gpu_id", type=int, default=-1, help="The id of gpu to be used. -1 for CPU only.")
 
-    parser.add_argument("--n_epoch", type=int, required=True)
-    parser.add_argument("--lr", type=float, default=1e-3)
+    parser.add_argument("--n_epoch", type=int, required=True, help="Num of training epochs.")
+    parser.add_argument("--batch_size", type=int, default=1)
+    parser.add_argument("--lr", type=float, default=1e-3, help="Learning rate")
+
+    parser.add_argument("--data_root",
+                        type=str,
+                        default="work_space/data",
+                        help="Data root for storing Oxford Pet Data. "
+                             "Files will be downloaded to the folder if data is not found.")
+    parser.add_argument("--n_worker",
+                        type=int,
+                        default=ConfigureHelper.max_n_workers,
+                        help="Num of worker for multi-processing")
+    parser.add_argument("--preload_dataset",
+                        type=TypeHelper.str2bool,
+                        default=False,
+                        help="True for preloading dataset into memory fastern training if large memory available.")
+
+
+    parser.add_argument("--log_visualization_every_n_epoch", type=int, default=1)
+    parser.add_argument("--save_weights_every_n_epoch", type=int, default=1)
 
     parser.add_argument("--seed", type=int, default=0)
 
@@ -93,17 +108,15 @@ def main():
     criter = torch.nn.CrossEntropyLoss().to(device)
 
     tb_writer = SummaryWriter(log_dir=OSHelper.path_join(opt.work_space_dir, "tb_log"))
-    for epoch in range(1, opt.n_epoch):
+    epoch = 1
+    for epoch in range(epoch, opt.n_epoch):
         print("\nEpoch {} ({})".format(epoch, datetime.now()))
         tb_writer.add_scalar("lr", optimizer.param_groups[0]["lr"], epoch)
 
         epoch_loss = 0
         for image, label in tqdm(training_dataloader,
                                  total=len(training_dataloader),
-                                 desc=f"Training",
-                                 # mininterval=ConfigureHelper.TQDM_INTERVAL[0],
-                                 # maxinterval=ConfigureHelper.TQDM_INTERVAL[1]
-                                 ):
+                                 desc=f"Training"):
             image, label = image.to(device), label.to(device)
             with torch.cuda.amp.autocast():
                 pred_logits = model(image)
@@ -123,10 +136,7 @@ def main():
         with torch.no_grad():
             for images, labels in tqdm(test_dataloader,
                                        total=len(test_dataloader),
-                                       desc="Testing",
-                                       # mininterval=ConfigureHelper.TQDM_INTERVAL[0],
-                                       # maxinterval=ConfigureHelper.TQDM_INTERVAL[1]
-                                       ):
+                                       desc="Testing"):
                 images = images.to(device)
                 pred_labels = torch.argmax(model(images), dim=1)  # (B, H, W)
                 B = images.shape[0]
@@ -175,9 +185,9 @@ def main():
                     image = image.clip(0., 1.)
                     image = (image * 255.).astype(np.uint8)
 
-                    label = labels[0].cpu().numpy()
+                    label = labels[0].cpu().numpy().astype(np.uint8).squeeze()
                     label = cv2.applyColorMap(label, cv2.COLORMAP_VIRIDIS)
-                    pred_label = pred_labels[0].cpu().numpy()
+                    pred_label = pred_labels[0].cpu().numpy().astype(np.uint8).squeeze()
                     pred_label = cv2.applyColorMap(pred_label, cv2.COLORMAP_VIRIDIS)
 
                     titles = ['Input Image', 'True Mask', 'Predicted Mask']
@@ -205,6 +215,11 @@ def main():
                     # plt.close()
 
                     break
+
+        if epoch & opt.save_weights_every_n_epoch == 0:
+            TorchHelper.save_network(model, OSHelper.path_join(opt.work_space_dir, f"net_{epoch}.pth"))
+    TorchHelper.save_network(model, OSHelper.path_join(opt.work_space_dir, f"net_{epoch - 1}.pth"))
+
 
     pass
 
