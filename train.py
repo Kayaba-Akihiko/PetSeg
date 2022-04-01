@@ -7,7 +7,6 @@ import argparse
 
 import numpy as np
 
-from utils.ConfigureHelper import ConfigureHelper
 import torch
 import sys
 from model import UNet
@@ -199,7 +198,7 @@ def main():
                 for batch_dc, batch_asd in mph.run(args=args, func=_dc_and_assd, n_workers=opt.n_worker):
                     for class_id in LABEL_NAME_DICT:
                         test_dc[class_id] += batch_dc[class_id]
-                        test_assd += batch_asd[class_id]
+                        test_assd[class_id] += batch_asd[class_id]
                 sample_count += B
         # Average evaluation results
         for key in LABEL_NAME_DICT:
