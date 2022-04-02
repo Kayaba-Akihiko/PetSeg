@@ -4,6 +4,9 @@
 #  This file can not be copied and/or distributed without the express permission of Yi GU.
 
 import argparse
+
+import cv2
+
 from utils.ConfigureHelper import ConfigureHelper
 from utils.OSHelper import OSHelper
 import torch
@@ -66,9 +69,11 @@ def main():
     else:
         print(f"Running with CPU.")
 
+    image_dsize = ContainerHelper.to_tuple(224)
+
     inference_save_dir = OSHelper.path_join(opt.work_space_dir, f"inference_{opt.pretrain_loading_epoch}")
     OSHelper.mkdirs(inference_save_dir)
-    __inference(opt, inference_save_dir)
+    __inference(opt, image_dsize, inference_save_dir)
 
     eval_save_dir = OSHelper.path_join(opt.work_space_dir, f"eval_{opt.pretrain_loading_epoch}")
     OSHelper.mkdirs(eval_save_dir)
@@ -80,7 +85,7 @@ def main():
     for image_id in image_ids:
         pred_path = OSHelper.path_join(inference_save_dir, f"{image_id}.png")
         target_path = OSHelper.path_join(opt.data_root, "oxford-iiit-pet", "annotations", "trimaps", f"{image_id}.png")
-        args.append((pred_path, target_path, image_id))
+        args.append((pred_path, target_path, image_id, image_dsize))
 
     eval_df = MultiProcessingHelper().run(args=args,
                                           func=_load_and_eval,
@@ -92,9 +97,9 @@ def main():
     eval_df.to_excel(OSHelper.path_join(eval_save_dir, "eval.xlsx"))
 
 
-def __inference(opt, inference_save_dir) -> None:
+def __inference(opt, image_dsize, inference_save_dir) -> None:
     device = torch.device(opt.gpu_id if opt.gpu_id >= 0 else "cpu")
-    image_dsize = ContainerHelper.to_tuple(224)
+
     model = UNet(n_class=len(TestDataset.LABEL_NAME_DICT)).to(device)
 
     model_load_path = OSHelper.path_join(opt.work_space_dir, f"net_{opt.pretrain_loading_epoch}.pth")
@@ -124,9 +129,12 @@ def __inference(opt, inference_save_dir) -> None:
                 Image.fromarray(pred_label).save(OSHelper.path_join(inference_save_dir, f"{image_id}.png"))
 
 
-def _load_and_eval(pred_path, target_path, image_id) -> list[dict]:
+def _load_and_eval(pred_path, target_path, image_id, image_dsize) -> list[dict]:
     pred_seg = np.array(Image.open(pred_path))
     target_seg = np.array(Image.open(target_path))
+
+    target_seg = cv2.resize(target_seg, image_dsize, interpolation=cv2.INTER_NEAREST)
+
     data = []
     for class_id in TestDataset.LABEL_NAME_DICT:
         binary_label = target_seg == class_id
