@@ -104,6 +104,7 @@ def main():
     eval_df = eval_df[(eval_df["DC"] == eval_df["DC"].min()) |
                       (eval_df["DC"] == eval_df["DC"].median()) |
                       (eval_df["DC"] == eval_df["DC"].max())].sort_values(by="DC", ascending=True)
+    eval_df = eval_df.loc[[eval_df["DC"].argmin(), eval_df["DC"].argmax(), eval_df["DC"].argmedian()], :]
     if len(eval_df) != 3:
         raise RuntimeError(f"Unexpected sample num {len(eval_df)} .")
 
