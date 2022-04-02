@@ -114,7 +114,7 @@ def __inference(opt, inference_save_dir) -> None:
     with torch.no_grad():
         for images, labels, image_ids in tqdm(test_dataloader, total=len(test_dataloader), desc="Inferencing"):
             images = images.to(device)
-            pred_labels = torch.argmax(model(images), dim=1).cpu().numpy()  # (B, H, W)
+            pred_labels = torch.argmax(model(images), dim=1).cpu().numpy().astype(np.uint8)  # (B, H, W)
             pred_labels += 1  # [0, 1, 2] to [1, 2, 3]
 
             B = len(image_ids)
