@@ -134,7 +134,6 @@ def _load_and_eval(pred_path, target_path, image_id, image_dsize) -> list[dict]:
     target_seg = np.array(Image.open(target_path)) - 1
 
     target_seg = cv2.resize(target_seg, image_dsize, interpolation=cv2.INTER_NEAREST)
-    # print(pred_seg.min(), pred_seg.max(), pred_seg.dtype, target_seg.min(), target_seg.max(), target_seg.dtype)
 
     data = []
     mean_dc = 0
@@ -142,7 +141,6 @@ def _load_and_eval(pred_path, target_path, image_id, image_dsize) -> list[dict]:
     for class_id in TestDataset.LABEL_NAME_DICT:
         binary_label = target_seg == class_id
         binary_pred_label = pred_seg == class_id
-
         # calculate DC and ASSD
         dc = EvaluationHelper.dc(binary_label, binary_pred_label)
         try:
@@ -152,8 +150,8 @@ def _load_and_eval(pred_path, target_path, image_id, image_dsize) -> list[dict]:
             binary_label[0, 0] = 1
             binary_pred_label[-1, -1] = 1
             assd = EvaluationHelper.assd(binary_label, binary_pred_label)
-        data.append({"image_id": image_id, "class": class_id, "metric": "DC", "value": dc})
-        data.append({"image_id": image_id, "class": class_id, "metric": "ASSD", "value": assd})
+        data.append({"image_id": image_id, "class": TestDataset.LABEL_NAME_DICT[class_id], "metric": "DC", "value": dc})
+        data.append({"image_id": image_id, "class": TestDataset.LABEL_NAME_DICT[class_id], "metric": "ASSD", "value": assd})
         mean_dc += dc
         mean_assd += assd
     mean_dc /= len(TestDataset.LABEL_NAME_DICT)
