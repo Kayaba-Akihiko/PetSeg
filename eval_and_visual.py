@@ -103,9 +103,9 @@ def main():
                   x="class",
                   y="ASSD",
                   save_path=OSHelper.path_join(eval_save_dir, "assd.png"))
-
-    prefixes = ["max", "median", "min"]
-    for prefix, (_, row) in zip(prefixes, eval_df.loc[[0, len(eval_df) // 2, len(eval_df) - 1]].iterrows()):
+    eval_df = eval_df[eval_df["class"] == "Mean"]
+    eval_df = eval_df.loc[[0, len(eval_df) // 2, len(eval_df) - 1]]
+    for prefix, (_, row) in zip(["max", "median", "min"], eval_df.iterrows()):
         print(prefix)
         print(row)
         image_path = OSHelper.path_join(opt.data_root, "oxford-iiit-pet", "images", f"{row['image_id']}.jpg")
@@ -179,14 +179,12 @@ def _load_and_eval(pred_path, target_path, image_id, image_dsize) -> list[dict]:
             binary_label[0, 0] = 1
             binary_pred_label[-1, -1] = 1
             assd = EvaluationHelper.assd(binary_label, binary_pred_label)
-        data.append({"image_id": image_id, "class": TestDataset.LABEL_NAME_DICT[class_id], "DC": dc})
-        data.append({"image_id": image_id, "class": TestDataset.LABEL_NAME_DICT[class_id], "ASSD": assd})
+        data.append({"image_id": image_id, "class": TestDataset.LABEL_NAME_DICT[class_id], "DC": dc, "ASSD": assd})
         mean_dc += dc
         mean_assd += assd
     mean_dc /= len(TestDataset.LABEL_NAME_DICT)
     mean_assd /= len(TestDataset.LABEL_NAME_DICT)
-    data.append({"image_id": image_id, "class": "Mean", "DC": mean_dc})
-    data.append({"image_id": image_id, "class": "Mean", "ASSD": mean_assd})
+    data.append({"image_id": image_id, "class": "Mean", "DC": mean_dc, "ASSD": mean_assd})
     return data
 
 
