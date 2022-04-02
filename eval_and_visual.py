@@ -104,7 +104,7 @@ def main():
                   y="ASSD",
                   save_path=OSHelper.path_join(eval_save_dir, "assd.png"))
 
-    eval_df = eval_df.loc[[0, len(eval_df) // 2, -1]]
+    eval_df = eval_df.loc[[0, len(eval_df) // 2, len(eval_df) - 1]]
     if len(eval_df) != 3:
         raise RuntimeError(f"Unexpected sample num {len(eval_df)} .")
 
