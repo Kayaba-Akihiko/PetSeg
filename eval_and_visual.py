@@ -100,9 +100,7 @@ def main():
     _draw_boxplot(data=eval_df,
                   x="class",
                   y="ASSD",
-                  save_path=OSHelper.path_join(eval_save_dir, "dc.png"))
-
-
+                  save_path=OSHelper.path_join(eval_save_dir, "assd.png"))
 
 
 def __inference(opt, image_dsize, inference_save_dir) -> None:
