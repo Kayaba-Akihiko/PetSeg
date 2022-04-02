@@ -33,10 +33,7 @@ if torch.cuda.is_available():
 torch.use_deterministic_algorithms(False)
 if sys.platform.startswith("linux"):
     import resource
-
     resource.setrlimit(resource.RLIMIT_NOFILE, (4096, resource.getrlimit(resource.RLIMIT_NOFILE)[1]))
-
-
 
 
 def main():
@@ -78,7 +75,6 @@ def main():
     ConfigureHelper.set_seed(opt.seed)
     OSHelper.mkdirs(opt.work_space_dir)
 
-
     # Save setting
     opt_str = serialize_option(opt, parser)
     print(opt_str)
@@ -99,11 +95,10 @@ def main():
     else:
         print(f"Running with CPU.")
 
+    device = torch.device(opt.gpu_id if opt.gpu_id >= 0 else "cpu")
     image_dsize = ContainerHelper.to_tuple(224)
 
-    device = torch.device(opt.gpu_id if opt.gpu_id >= 0 else "cpu")
-
-    model = UNet(n_class=len(LABEL_NAME_DICT)).to(device)
+    model = UNet(n_class=len(TrainingDataset.LABEL_NAME_DICT)).to(device)
     with open(OSHelper.path_join(opt.work_space_dir, "net.txt"), 'wt') as opt_file:
         opt_file.write(str(model))
         opt_file.write('\n')
@@ -144,9 +139,9 @@ def main():
 
         # Train one epoch
         epoch_loss = 0
-        for image, label in tqdm(training_dataloader,
-                                 total=len(training_dataloader),
-                                 desc=f"Training"):
+        for image, label, _ in tqdm(training_dataloader,
+                                    total=len(training_dataloader),
+                                    desc=f"Training"):
             # Move data to GPU if GPU is available
             image, label = image.to(device), label.to(device)
 
@@ -175,10 +170,10 @@ def main():
         test_assd = {label: 0 for label in TrainingDataset.LABEL_NAME_DICT}
         sample_count = 0
 
-        with torch.no_grad(): # Stop recording gradient for faster inference
-            for images, labels in tqdm(test_dataloader,
-                                       total=len(test_dataloader),
-                                       desc="Testing"):
+        with torch.no_grad():  # Stop recording gradient for faster inference
+            for images, labels, _ in tqdm(test_dataloader,
+                                          total=len(test_dataloader),
+                                          desc="Testing"):
                 images = images.to(device)
                 pred_labels = torch.argmax(model(images), dim=1)  # (B, H, W)
 
@@ -233,7 +228,7 @@ def main():
         # Log visualization
         if epoch % opt.log_visualization_every_n_epoch == 0:
             with torch.no_grad():
-                for images, labels in visualization_dataloader:
+                for images, labels, _ in visualization_dataloader:
                     images = images.to(device)  # (B, 3, H, W)
                     pred_labels = torch.argmax(model(images), dim=1)  # (B, H, W)
 

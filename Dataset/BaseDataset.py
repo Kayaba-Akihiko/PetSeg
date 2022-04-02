@@ -12,7 +12,7 @@ import pathlib
 from PIL import Image
 from utils.ConfigureHelper import ConfigureHelper
 from MultiProcessingHelper import MultiProcessingHelper
-from typing import Union
+from typing import Union, AnyStr
 from utils.ImageHelper import ImageHelper
 from utils.ContainerHelper import ContainerHelper
 import cv2
@@ -55,13 +55,15 @@ class BaseDataset(Dataset, ABC):
 
         if not self._check_exists():
             self._download()
-        image_ids = []
-        with open(self._anns_folder / f"{self._split}.txt") as file:
-            for line in file:
-                image_id, label, *_ = line.strip().split()
-                image_ids.append(image_id)
-        self._images = [str(self._images_folder / f"{image_id}.jpg") for image_id in image_ids]
-        self._segs = [str(self._segs_folder / f"{image_id}.png") for image_id in image_ids]
+        self._image_ids = self.read_image_ids(self._anns_folder / f"{self._split}.txt")
+        self._image_id_idx_dict = {image_id: i for i, image_id in enumerate(self._image_ids)}
+        # with open(self._anns_folder / f"{self._split}.txt") as file:
+        #     for i, line in enumerate(file):
+        #         image_id, label, *_ = line.strip().split()
+        #         self._image_ids.append(image_id)
+        #         self._image_id_idx_dict[image_id] = i
+        self._images = [str(self._images_folder / f"{image_id}.jpg") for image_id in self._image_ids]
+        self._segs = [str(self._segs_folder / f"{image_id}.png") for image_id in self._image_ids]
 
         if self.__preload_dataset:
             mph = MultiProcessingHelper()
@@ -81,13 +83,16 @@ class BaseDataset(Dataset, ABC):
     def __len__(self) -> int:
         return len(self._images)
 
-    def __getitem__(self, idx: int) -> tuple[np.ndarray, np.ndarray]:
+    def __getitem__(self, idx: int) -> tuple[np.ndarray, np.ndarray, str]:
         image = self.__image_load_func(self._images[idx])
         seg = self.__seg_load_func(self._segs[idx])
         image, seg = self._augment(image=image, seg=seg)
         image = cv2.resize(image, dsize=self._ret_dsize)
         seg = cv2.resize(seg, dsize=self._ret_dsize, interpolation=cv2.INTER_NEAREST)
-        return image.transpose((2, 0, 1)).astype(np.float32), seg.astype(int)
+        return image.transpose((2, 0, 1)).astype(np.float32), seg.astype(int), self._image_ids[idx]
+
+    def get_item_by_id(self, image_id: str) -> tuple[np.ndarray, np.ndarray, str]:
+        return self.__getitem__(self._image_id_idx_dict[image_id])
 
     def _check_exists(self) -> bool:
         for folder in (self._images_folder, self._anns_folder):
@@ -111,6 +116,15 @@ class BaseDataset(Dataset, ABC):
     @staticmethod
     def _load_seg(path) -> np.ndarray:
         return np.array(Image.open(path)) - 1  # 1, 2, 3 to 0, 1, 2
+
+    @staticmethod
+    def read_image_ids(path) -> list[str]:
+        image_ids = []
+        with open(path) as file:
+            for i, line in enumerate(file):
+                image_id, *_ = line.strip().split()
+                image_ids.append(image_id)
+        return image_ids
 
     @staticmethod
     def _identity(x):

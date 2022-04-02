@@ -23,8 +23,12 @@ class OSHelper:
         return osp.join(*paths)
 
     @staticmethod
-    def path_dirname(path: str) -> AnyStr:
+    def path_dirname(path: AnyStr) -> AnyStr:
         return osp.dirname(path)
+
+    @staticmethod
+    def path_exists(path: AnyStr) -> bool:
+        return osp.exists(path)
 
     @staticmethod
     def mkdirs(paths: Union[Union[list[AnyStr, ...], tuple[AnyStr, ...]], AnyStr]):
