@@ -144,3 +144,6 @@ def _load_and_eval(pred_path, target_path, image_id) -> list[dict]:
         data.append({"image_id": image_id, "class": class_id, "metric": "DC", "value": dc})
         data.append({"image_id": image_id, "class": class_id, "metric": "ASSD", "value": assd})
     return data
+
+if __name__ == '__main__':
+    main()
