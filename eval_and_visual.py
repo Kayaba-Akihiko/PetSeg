@@ -104,14 +104,10 @@ def main():
                   y="ASSD",
                   save_path=OSHelper.path_join(eval_save_dir, "assd.png"))
 
-    eval_df = eval_df.loc[[0, len(eval_df) // 2, len(eval_df) - 1]]
-    if len(eval_df) != 3:
-        raise RuntimeError(f"Unexpected sample num {len(eval_df)} .")
-
     prefixes = ["max", "median", "min"]
-    for prefix, (_, row) in zip(prefixes, eval_df.iterrows()):
+    for prefix, (_, row) in zip(prefixes, eval_df.loc[[0, len(eval_df) // 2, len(eval_df) - 1]].iterrows()):
         print(prefix, row)
-        image_path = OSHelper.path_join(opt.data_root, "oxford-iiit-pet", "images", f"{row['image_id']}.png")
+        image_path = OSHelper.path_join(opt.data_root, "oxford-iiit-pet", "images", f"{row['image_id']}.jpg")
         target_label_path = OSHelper.path_join(opt.data_root, "oxford-iiit-pet", "trimaps", f"{row['image_id']}.png")
         pred_label_path = OSHelper.path_join(inference_save_dir, f"{row['image_id']}.png")
         __save_sample_visual(image_path, target_label_path, pred_label_path, image_dsize, eval_save_dir, prefix)
