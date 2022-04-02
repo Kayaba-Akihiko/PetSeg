@@ -106,7 +106,8 @@ def main():
 
     prefixes = ["max", "median", "min"]
     for prefix, (_, row) in zip(prefixes, eval_df.loc[[0, len(eval_df) // 2, len(eval_df) - 1]].iterrows()):
-        print(prefix, row)
+        print(prefix)
+        print(row)
         image_path = OSHelper.path_join(opt.data_root, "oxford-iiit-pet", "images", f"{row['image_id']}.jpg")
         target_label_path = OSHelper.path_join(opt.data_root, "oxford-iiit-pet", "trimaps", f"{row['image_id']}.png")
         pred_label_path = OSHelper.path_join(inference_save_dir, f"{row['image_id']}.png")
