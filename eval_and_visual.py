@@ -6,7 +6,7 @@
 import argparse
 
 import cv2
-
+from utils.ImageHelper import ImageHelper
 from utils.ConfigureHelper import ConfigureHelper
 from utils.OSHelper import OSHelper
 import torch
@@ -101,6 +101,18 @@ def main():
                   x="class",
                   y="ASSD",
                   save_path=OSHelper.path_join(eval_save_dir, "assd.png"))
+    eval_df = eval_df[(eval_df["DC"] == eval_df["DC"].min()) &
+                      (eval_df["DC"] == eval_df["DC"].median()) &
+                      (eval_df["DC"] == eval_df["DC"].max())].sort_values(by="DC", ascending=True)
+    if len(eval_df) != 3:
+        raise RuntimeError(f"Unexpected sample num {len(eval_df)} .")
+
+    prefixes = ["min", "median", "max"]
+    for prefix, (_, row) in zip(prefixes, eval_df.iterrows()):
+        image_path = OSHelper.path_join(opt.data_root, "oxford-iiit-pet", "images", f"{row['image_id']}.png")
+        target_label_path = OSHelper.path_join(opt.data_root, "oxford-iiit-pet", "trimaps", f"{row['image_id']}.png")
+        pred_label_path = OSHelper.path_join(inference_save_dir, f"{row['image_id']}.png")
+        __save_sample_visual(image_path, target_label_path, pred_label_path, image_dsize, eval_save_dir, prefix)
 
 
 def __inference(opt, image_dsize, inference_save_dir) -> None:
@@ -184,6 +196,25 @@ def _draw_boxplot(data, x, y, save_path: AnyStr, order=None, palette="Blues", fi
     plt.close(ax.figure)
     plt.close(fig)
     plt.close()
+
+
+def __save_sample_visual(image_path, target_label_path, pred_label_path, image_dsize, save_dir, name_prefix) -> None:
+    image = Image.open(image_path).convert("RGB")
+    image = image.resize(image_dsize, Image.BILINEAR)
+    image.save(OSHelper.path_join(save_dir, f"{name_prefix}_Image.png"))
+
+    min_class_id = min(TestDataset.LABEL_NAME_DICT.keys())
+    max_class_id = max(TestDataset.LABEL_NAME_DICT.keys())
+
+    target_label = np.array(Image.open(target_label_path)) - 1
+    target_label = cv2.resize(target_label, image_dsize, interpolation=cv2.INTER_NEAREST)
+    target_label = ImageHelper.apply_colormap_to_dense_map(target_label, min_class_id, max_class_id)
+    cv2.imwrite(OSHelper.path_join(save_dir, f"{name_prefix}_True.png"), target_label)
+
+    pred_label = np.array(Image.open(pred_label_path)) - 1
+    pred_label = cv2.resize(pred_label, image_dsize, interpolation=cv2.INTER_NEAREST)
+    pred_label = ImageHelper.apply_colormap_to_dense_map(pred_label, min_class_id, max_class_id)
+    cv2.imwrite(OSHelper.path_join(save_dir, f"{name_prefix}_Pred.png"), pred_label)
 
 
 if __name__ == '__main__':

@@ -242,13 +242,14 @@ def main():
 
                     # Convert to standard data range [0, 255]
                     image = (image * 255.).astype(np.uint8)
-
+                    min_class_id = min(TrainingDataset.LABEL_NAME_DICT.keys())
                     max_class_id = max(TrainingDataset.LABEL_NAME_DICT.keys())
-
                     label = ImageHelper.apply_colormap_to_dense_map(label,
+                                                                    min_class_id=min_class_id,
                                                                     max_class_id=max_class_id)
                     label = cv2.cvtColor(label, cv2.COLOR_BGR2RGB)
                     pred_label = ImageHelper.apply_colormap_to_dense_map(pred_label,
+                                                                         min_class_id=min_class_id,
                                                                          max_class_id=max_class_id)
                     pred_label = cv2.cvtColor(pred_label, cv2.COLOR_BGR2RGB)
 
