@@ -109,7 +109,11 @@ def main():
         print(prefix)
         print(row)
         image_path = OSHelper.path_join(opt.data_root, "oxford-iiit-pet", "images", f"{row['image_id']}.jpg")
-        target_label_path = OSHelper.path_join(opt.data_root, "oxford-iiit-pet", "trimaps", f"{row['image_id']}.png")
+        target_label_path = OSHelper.path_join(opt.data_root,
+                                               "oxford-iiit-pet",
+                                               "annotations",
+                                               "trimaps",
+                                               f"{row['image_id']}.png")
         pred_label_path = OSHelper.path_join(inference_save_dir, f"{row['image_id']}.png")
         __save_sample_visual(image_path, target_label_path, pred_label_path, image_dsize, eval_save_dir, prefix)
 
