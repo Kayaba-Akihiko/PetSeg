@@ -38,7 +38,6 @@ class ImageHelper(ABC):
                 raise RuntimeError(f"Unexpected data range: {x.min()} {min_val} {x.max()} {max_val}")
             if max_val == min_val:
                 raise RuntimeError(f"Constant value:", {min_val, max_val})
-            return (x - min_val) / (max_val - min_val)
         except RuntimeError as e:
             if return_zero_for_except:
                 if isinstance(x, np.ndarray):
@@ -47,9 +46,14 @@ class ImageHelper(ABC):
                     return torch.zeros_like(x, device=x.device)
                 raise RuntimeError(f"Unsupported type {type(x)}.")
             raise e
+        return (x - min_val) / (max_val - min_val)
 
     @classmethod
-    def apply_colormap_to_dense_map(cls, dense_mape, min_class_id=0, max_class_id=255, color_map=cv2.COLORMAP_VIRIDIS):
+    def apply_colormap_to_dense_map(cls,
+                                    dense_mape: np.ndarray,
+                                    min_class_id=0,
+                                    max_class_id=255,
+                                    color_map=cv2.COLORMAP_VIRIDIS) -> np.ndarray:
         dense_map = cls.min_max_scale(dense_mape.squeeze().astype(float),
                                       False,
                                       min_val=min_class_id,
