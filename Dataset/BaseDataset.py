@@ -57,11 +57,8 @@ class BaseDataset(Dataset, ABC):
             self._download()
         self._image_ids = self.read_image_ids(self._anns_folder / f"{self._split}.txt")
         self._image_id_idx_dict = {image_id: i for i, image_id in enumerate(self._image_ids)}
-        # with open(self._anns_folder / f"{self._split}.txt") as file:
-        #     for i, line in enumerate(file):
-        #         image_id, label, *_ = line.strip().split()
-        #         self._image_ids.append(image_id)
-        #         self._image_id_idx_dict[image_id] = i
+
+
         self._images = [str(self._images_folder / f"{image_id}.jpg") for image_id in self._image_ids]
         self._segs = [str(self._segs_folder / f"{image_id}.png") for image_id in self._image_ids]
 

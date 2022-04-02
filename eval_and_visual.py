@@ -60,20 +60,12 @@ def main():
     opt = parser.parse_args()
     opt.work_space_dir = OSHelper.format_path(opt.work_space_dir)
     opt.data_root = OSHelper.format_path(opt.data_root)
-    if opt.gpu_id >= 0:
-        if not torch.cuda.is_available():
-            raise RuntimeError(f"GPU {opt.gpu_id} is not available.")
-        else:
-            torch.cuda.init()
-        print(f"Running with GPU {opt.gpu_id}.")
-    else:
-        print(f"Running with CPU.")
 
     image_dsize = ContainerHelper.to_tuple(224)
 
     inference_save_dir = OSHelper.path_join(opt.work_space_dir, f"inference_{opt.pretrain_loading_epoch}")
     OSHelper.mkdirs(inference_save_dir)
-    __inference(opt, image_dsize, inference_save_dir)
+    # __inference(opt, image_dsize, inference_save_dir)
 
     eval_save_dir = OSHelper.path_join(opt.work_space_dir, f"eval_{opt.pretrain_loading_epoch}")
     OSHelper.mkdirs(eval_save_dir)
@@ -98,6 +90,14 @@ def main():
 
 
 def __inference(opt, image_dsize, inference_save_dir) -> None:
+    if opt.gpu_id >= 0:
+        if not torch.cuda.is_available():
+            raise RuntimeError(f"GPU {opt.gpu_id} is not available.")
+        else:
+            torch.cuda.init()
+        print(f"Running with GPU {opt.gpu_id}.")
+    else:
+        print(f"Running with CPU.")
     device = torch.device(opt.gpu_id if opt.gpu_id >= 0 else "cpu")
 
     model = UNet(n_class=len(TestDataset.LABEL_NAME_DICT)).to(device)
@@ -136,6 +136,8 @@ def _load_and_eval(pred_path, target_path, image_id, image_dsize) -> list[dict]:
     target_seg = cv2.resize(target_seg, image_dsize, interpolation=cv2.INTER_NEAREST)
 
     data = []
+    mean_dc = 0
+    mean_assd = 0
     for class_id in TestDataset.LABEL_NAME_DICT:
         binary_label = target_seg == class_id
         binary_pred_label = pred_seg == class_id
@@ -151,7 +153,14 @@ def _load_and_eval(pred_path, target_path, image_id, image_dsize) -> list[dict]:
             assd = EvaluationHelper.assd(binary_label, binary_pred_label)
         data.append({"image_id": image_id, "class": class_id, "metric": "DC", "value": dc})
         data.append({"image_id": image_id, "class": class_id, "metric": "ASSD", "value": assd})
+        mean_dc += dc
+        mean_assd += assd
+    mean_dc /= len(TestDataset.LABEL_NAME_DICT)
+    mean_assd /= len(TestDataset.LABEL_NAME_DICT)
+    data.append({"image_id": image_id, "class": "mean", "metric": "DC", "value": mean_dc})
+    data.append({"image_id": image_id, "class": "mean", "metric": "ASSD", "value": mean_assd})
     return data
+
 
 if __name__ == '__main__':
     main()
