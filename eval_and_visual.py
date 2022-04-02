@@ -97,6 +97,10 @@ def main():
                   x="class",
                   y="DC",
                   save_path=OSHelper.path_join(eval_save_dir, "dc.png"))
+    _draw_boxplot(data=eval_df,
+                  x="class",
+                  y="ASSD",
+                  save_path=OSHelper.path_join(eval_save_dir, "dc.png"))
 
 
 
@@ -168,8 +172,8 @@ def _load_and_eval(pred_path, target_path, image_id, image_dsize) -> list[dict]:
         mean_assd += assd
     mean_dc /= len(TestDataset.LABEL_NAME_DICT)
     mean_assd /= len(TestDataset.LABEL_NAME_DICT)
-    data.append({"image_id": image_id, "class": "mean", "DC": mean_dc})
-    data.append({"image_id": image_id, "class": "mean", "ASSD": mean_assd})
+    data.append({"image_id": image_id, "class": "Mean", "DC": mean_dc})
+    data.append({"image_id": image_id, "class": "Mean", "ASSD": mean_assd})
     return data
 
 
