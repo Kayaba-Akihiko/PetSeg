@@ -134,6 +134,7 @@ def _load_and_eval(pred_path, target_path, image_id, image_dsize) -> list[dict]:
     target_seg = np.array(Image.open(target_path))
 
     target_seg = cv2.resize(target_seg, image_dsize, interpolation=cv2.INTER_NEAREST)
+    print(pred_seg.min(), pred_seg.max(), pred_seg.dtype, target_seg.min(), target_seg.max(), target_seg.dtype)
 
     data = []
     mean_dc = 0
