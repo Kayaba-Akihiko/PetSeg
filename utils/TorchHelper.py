@@ -7,16 +7,11 @@ import os
 from collections import OrderedDict
 import torch
 from torch.nn import init
-from torch.optim import lr_scheduler
-from argparse import ArgumentParser, Namespace
-from collections.abc import Sequence
 from typing import Optional
-import copy
-from .TypeHelper import TypeHelper
-
-class TorchHelper:
+from abc import ABC
 
 
+class TorchHelper(ABC):
 
     @staticmethod
     def load_network_by_path(net: torch.nn.Module or torch.nn.DataParallel,
@@ -68,24 +63,6 @@ class TorchHelper:
         else:
             torch.save(net.module.state_dict(), path)
         print(path, "wrote.")
-
-    @staticmethod
-    def init_net(net: torch.nn.Module,
-                 init_type='normal',
-                 init_gain=0.02,
-                 device: Optional[torch.device] = torch.device("cpu"),
-                 initialize_weights=True) -> torch.nn.Module:
-        """Initialize a network: 1. register CPU/GPU device (with multi-GPU support); 2. initialize the network weights
-        :param device:
-        :param init_gain: scaling factor for normal, xavier and orthogonal.
-        :param init_type: the name of an initialization method: normal | xavier | kaiming | orthogonal
-        :param net: the network to be initialized
-        :param initialize_weights:
-        """
-        net = net.to(device)
-        if initialize_weights:
-            TorchHelper.init_weights(net, init_type, init_gain=init_gain, debug=False)
-        return net
 
     @staticmethod
     def init_weights(net, init_type='normal', init_gain=0.02, debug=False):

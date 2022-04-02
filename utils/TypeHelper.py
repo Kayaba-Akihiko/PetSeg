@@ -5,10 +5,10 @@
 #
 
 import argparse
-import json
+from abc import ABC
 
 
-class TypeHelper:
+class TypeHelper(ABC):
     @staticmethod
     def str2bool(v):
         if isinstance(v, bool):
@@ -20,18 +20,4 @@ class TypeHelper:
         else:
             raise argparse.ArgumentTypeError('Boolean value expected.')
 
-    @staticmethod
-    def json(v: str):
-        # if isinstance(v, list):
-        #     return v
-        return json.loads(v)
 
-    @staticmethod
-    def str2intlist(v: str):
-        str_ids = TypeHelper.json(v)
-        gpu_ids = []
-        for str_id in str_ids:
-            id_ = int(str_id)
-            if id_ >= 0:
-                gpu_ids.append(id_)
-        return gpu_ids

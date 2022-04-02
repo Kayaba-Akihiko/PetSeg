@@ -25,16 +25,6 @@ import cv2
 from utils.TorchHelper import TorchHelper
 from utils.ImageHelper import ImageHelper
 
-if torch.cuda.is_available():
-    torch.backends.cudnn.deterministic = False
-    torch.backends.cudnn.benchmark = True
-    torch.backends.cuda.matmul.allow_tf32 = False
-    torch.backends.cudnn.allow_tf32 = False
-torch.use_deterministic_algorithms(False)
-if sys.platform.startswith("linux"):
-    import resource
-    resource.setrlimit(resource.RLIMIT_NOFILE, (4096, resource.getrlimit(resource.RLIMIT_NOFILE)[1]))
-
 
 def main():
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
@@ -76,7 +66,7 @@ def main():
     OSHelper.mkdirs(opt.work_space_dir)
 
     # Save setting
-    opt_str = serialize_option(opt, parser)
+    opt_str = __serialize_option(opt, parser)
     print(opt_str)
     try:
         with open(OSHelper.path_join(opt.work_space_dir, "opt.txt"), 'wt') as opt_file:
@@ -190,16 +180,7 @@ def main():
                     for class_id in TrainingDataset.LABEL_NAME_DICT:
                         binary_label = label == class_id
                         binary_pred_label = pred_label == class_id
-
-                        # calculate DC and ASSD
-                        dc = EvaluationHelper.dc(binary_label, binary_pred_label)
-                        try:
-                            assd = EvaluationHelper.assd(binary_label, binary_pred_label)
-                        except RuntimeError:
-                            # In case of all-zero sample
-                            binary_label[0, 0] = 1
-                            binary_pred_label[-1, -1] = 1
-                            assd = EvaluationHelper.assd(binary_label, binary_pred_label)
+                        dc, assd = EvaluationHelper.dc_and_assd(binary_pred_label, binary_label)
                         test_dc[class_id] += dc
                         test_assd[class_id] += assd
 
@@ -239,9 +220,9 @@ def main():
                     # Denormalization
                     image = image * VisualizationDataset.NORMALIZATION_STD + VisualizationDataset.NORMALIZATION_MEAN
                     image = image.clip(0., 1.)
-
                     # Convert to standard data range [0, 255]
                     image = (image * 255.).astype(np.uint8)
+
                     min_class_id = min(TrainingDataset.LABEL_NAME_DICT.keys())
                     max_class_id = max(TrainingDataset.LABEL_NAME_DICT.keys())
                     label = ImageHelper.apply_colormap_to_dense_map(label,
@@ -274,7 +255,7 @@ def main():
     TorchHelper.save_network(model, OSHelper.path_join(opt.work_space_dir, f"net_{epoch - 1}.pth"))
 
 
-def serialize_option(opt: argparse.Namespace, parser: argparse.ArgumentParser) -> str:
+def __serialize_option(opt: argparse.Namespace, parser: argparse.ArgumentParser) -> str:
     message = '----------------- Options ---------------\n'
     for k, v in sorted(vars(opt).items()):
         comment = ''

@@ -23,20 +23,7 @@ import numpy as np
 from utils.EvaluationHelper import EvaluationHelper
 from MultiProcessingHelper import MultiProcessingHelper
 import itertools
-from typing import AnyStr
-
-
-if torch.cuda.is_available():
-    torch.backends.cudnn.deterministic = False
-    torch.backends.cudnn.benchmark = True
-    torch.backends.cuda.matmul.allow_tf32 = False
-    torch.backends.cudnn.allow_tf32 = False
-torch.use_deterministic_algorithms(False)
-if sys.platform.startswith("linux"):
-    import resource
-
-    resource.setrlimit(resource.RLIMIT_NOFILE, (4096, resource.getrlimit(resource.RLIMIT_NOFILE)[1]))
-
+from typing import AnyStr, Union
 import seaborn as sns
 import matplotlib.pyplot as plt
 
@@ -68,9 +55,10 @@ def main():
 
     image_dsize = ContainerHelper.to_tuple(224)
 
+    # Inference
     inference_save_dir = OSHelper.path_join(opt.work_space_dir, f"inference_{opt.pretrain_loading_epoch}")
     OSHelper.mkdirs(inference_save_dir)
-    # __inference(opt, image_dsize, inference_save_dir)
+    __inference(opt, image_dsize, inference_save_dir)
 
     eval_save_dir = OSHelper.path_join(opt.work_space_dir, f"eval_{opt.pretrain_loading_epoch}")
     OSHelper.mkdirs(eval_save_dir)
@@ -78,6 +66,7 @@ def main():
                                                               "oxford-iiit-pet",
                                                               "annotations",
                                                               "test.txt"))
+    # Evaluate
     args = []
     for image_id in image_ids:
         pred_path = OSHelper.path_join(inference_save_dir, f"{image_id}.png")
@@ -93,6 +82,7 @@ def main():
     eval_df = pd.DataFrame(eval_df, index=range(len(eval_df)))
     eval_df.to_excel(OSHelper.path_join(eval_save_dir, "eval.xlsx"))
 
+    # Visualize evaluation
     _draw_boxplot(data=eval_df,
                   x="class",
                   y="DC",
@@ -101,6 +91,8 @@ def main():
                   x="class",
                   y="ASSD",
                   save_path=OSHelper.path_join(eval_save_dir, "assd.png"))
+
+    # Sample best, median, and worst
     eval_df = eval_df[eval_df["class"] == "Mean"]
     eval_df.sort_values(by="DC", ascending=False, inplace=True)
     eval_df.reset_index(drop=True, inplace=True)
@@ -158,7 +150,10 @@ def __inference(opt, image_dsize, inference_save_dir) -> None:
                 Image.fromarray(pred_label).save(OSHelper.path_join(inference_save_dir, f"{image_id}.png"))
 
 
-def _load_and_eval(pred_path, target_path, image_id, image_dsize) -> list[dict]:
+def _load_and_eval(pred_path: AnyStr,
+                   target_path: AnyStr,
+                   image_id: AnyStr,
+                   image_dsize: tuple[int, int]) -> list[dict[str, Union[AnyStr, float]]]:
     pred_seg = np.array(Image.open(pred_path)) - 1
     target_seg = np.array(Image.open(target_path)) - 1
 
@@ -170,15 +165,7 @@ def _load_and_eval(pred_path, target_path, image_id, image_dsize) -> list[dict]:
     for class_id in TestDataset.LABEL_NAME_DICT:
         binary_label = target_seg == class_id
         binary_pred_label = pred_seg == class_id
-        # calculate DC and ASSD
-        dc = EvaluationHelper.dc(binary_label, binary_pred_label)
-        try:
-            assd = EvaluationHelper.assd(binary_label, binary_pred_label)
-        except RuntimeError:
-            # In case of all-zero sample
-            binary_label[0, 0] = 1
-            binary_pred_label[-1, -1] = 1
-            assd = EvaluationHelper.assd(binary_label, binary_pred_label)
+        dc, assd = EvaluationHelper.dc_and_assd(binary_pred_label, binary_label)
         data.append({"image_id": image_id, "class": TestDataset.LABEL_NAME_DICT[class_id], "DC": dc, "ASSD": assd})
         mean_dc += dc
         mean_assd += assd
@@ -188,7 +175,14 @@ def _load_and_eval(pred_path, target_path, image_id, image_dsize) -> list[dict]:
     return data
 
 
-def _draw_boxplot(data, x, y, save_path: AnyStr, order=None, palette="Blues", figsize=None, dpi=180):
+def _draw_boxplot(data: pd.DataFrame,
+                  x: AnyStr,
+                  y: AnyStr,
+                  save_path: AnyStr,
+                  order=None,
+                  palette="Blues",
+                  figsize=None,
+                  dpi=180):
     plt.clf()
     fig = plt.figure(figsize=figsize)
     ax = sns.boxplot(data=data, x=x, y=y, order=order, palette=palette, dodge=False)
@@ -199,7 +193,12 @@ def _draw_boxplot(data, x, y, save_path: AnyStr, order=None, palette="Blues", fi
     plt.close()
 
 
-def __save_sample_visual(image_path, target_label_path, pred_label_path, image_dsize, save_dir, name_prefix) -> None:
+def __save_sample_visual(image_path: AnyStr,
+                         target_label_path: AnyStr,
+                         pred_label_path: AnyStr,
+                         image_dsize: tuple[int, int],
+                         save_dir: AnyStr,
+                         name_prefix: AnyStr) -> None:
     image = Image.open(image_path).convert("RGB")
     image = image.resize(image_dsize, Image.BILINEAR)
     image.save(OSHelper.path_join(save_dir, f"{name_prefix}_Image.png"))

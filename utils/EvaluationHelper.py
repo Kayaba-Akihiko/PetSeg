@@ -5,11 +5,23 @@
 #
 import numpy as np
 from scipy.ndimage import _ni_support
-from scipy.ndimage.morphology import distance_transform_edt, binary_erosion,\
-    generate_binary_structure
+from scipy.ndimage.morphology import distance_transform_edt, binary_erosion, generate_binary_structure
+from abc import ABC
 
 
-class EvaluationHelper:
+class EvaluationHelper(ABC):
+
+    @classmethod
+    def dc_and_assd(cls, result: np.ndarray, reference: np.ndarray) -> tuple[float, float]:
+        dc = EvaluationHelper.dc(result, reference)
+        try:
+            assd = EvaluationHelper.assd(result, reference)
+        except RuntimeError:
+            # In case of all-zero sample
+            result[-1, -1] = 1
+            reference[0, 0] = 1
+            assd = EvaluationHelper.assd(result, reference)
+        return dc, assd
 
     @staticmethod
     def dc(result: np.ndarray, reference: np.ndarray) -> float:
