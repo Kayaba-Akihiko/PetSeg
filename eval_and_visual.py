@@ -91,6 +91,8 @@ def main():
                                           desc="Evaluating")
     eval_df = list(itertools.chain(*eval_df))
     eval_df = pd.DataFrame(eval_df, index=range(len(eval_df)))
+    eval_df.sort_values(by="DC", ascending=True, inplace=True)
+    eval_df.reset_index(drop=True, inplace=True)
     eval_df.to_excel(OSHelper.path_join(eval_save_dir, "eval.xlsx"))
 
     _draw_boxplot(data=eval_df,
@@ -101,16 +103,14 @@ def main():
                   x="class",
                   y="ASSD",
                   save_path=OSHelper.path_join(eval_save_dir, "assd.png"))
-    # eval_df = eval_df[(eval_df["DC"] == eval_df["DC"].min()) |
-    #                   (eval_df["DC"] == eval_df["DC"].median()) |
-    #                   (eval_df["DC"] == eval_df["DC"].max())].sort_values(by="DC", ascending=True)
-    eval_df = eval_df.loc[[eval_df["DC"].argmin(), eval_df["DC"].argmax(), eval_df["DC"].argmedian()], :]
-    eval_df.sort_values(by="DC", ascending=True, inplace=True)
+
+    eval_df = eval_df.loc[[0, len(eval_df) // 2, -1]]
     if len(eval_df) != 3:
         raise RuntimeError(f"Unexpected sample num {len(eval_df)} .")
 
     prefixes = ["min", "median", "max"]
     for prefix, (_, row) in zip(prefixes, eval_df.iterrows()):
+        print(prefix, row)
         image_path = OSHelper.path_join(opt.data_root, "oxford-iiit-pet", "images", f"{row['image_id']}.png")
         target_label_path = OSHelper.path_join(opt.data_root, "oxford-iiit-pet", "trimaps", f"{row['image_id']}.png")
         pred_label_path = OSHelper.path_join(inference_save_dir, f"{row['image_id']}.png")
