@@ -101,10 +101,11 @@ def main():
                   x="class",
                   y="ASSD",
                   save_path=OSHelper.path_join(eval_save_dir, "assd.png"))
-    eval_df = eval_df[(eval_df["DC"] == eval_df["DC"].min()) |
-                      (eval_df["DC"] == eval_df["DC"].median()) |
-                      (eval_df["DC"] == eval_df["DC"].max())].sort_values(by="DC", ascending=True)
+    # eval_df = eval_df[(eval_df["DC"] == eval_df["DC"].min()) |
+    #                   (eval_df["DC"] == eval_df["DC"].median()) |
+    #                   (eval_df["DC"] == eval_df["DC"].max())].sort_values(by="DC", ascending=True)
     eval_df = eval_df.loc[[eval_df["DC"].argmin(), eval_df["DC"].argmax(), eval_df["DC"].argmedian()], :]
+    eval_df.sort_values(by="DC", ascending=True, inplace=True)
     if len(eval_df) != 3:
         raise RuntimeError(f"Unexpected sample num {len(eval_df)} .")
 
