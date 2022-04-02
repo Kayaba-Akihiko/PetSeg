@@ -91,7 +91,7 @@ def main():
                                           desc="Evaluating")
     eval_df = list(itertools.chain(*eval_df))
     eval_df = pd.DataFrame(eval_df, index=range(len(eval_df)))
-    eval_df.sort_values(by="DC", ascending=True, inplace=True)
+    eval_df.sort_values(by="DC", ascending=False, inplace=True)
     eval_df.reset_index(drop=True, inplace=True)
     eval_df.to_excel(OSHelper.path_join(eval_save_dir, "eval.xlsx"))
 
@@ -108,7 +108,7 @@ def main():
     if len(eval_df) != 3:
         raise RuntimeError(f"Unexpected sample num {len(eval_df)} .")
 
-    prefixes = ["min", "median", "max"]
+    prefixes = ["max", "median", "min"]
     for prefix, (_, row) in zip(prefixes, eval_df.iterrows()):
         print(prefix, row)
         image_path = OSHelper.path_join(opt.data_root, "oxford-iiit-pet", "images", f"{row['image_id']}.png")
