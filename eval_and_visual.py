@@ -23,6 +23,8 @@ import numpy as np
 from utils.EvaluationHelper import EvaluationHelper
 from MultiProcessingHelper import MultiProcessingHelper
 import itertools
+from typing import AnyStr
+
 
 if torch.cuda.is_available():
     torch.backends.cudnn.deterministic = False
@@ -34,6 +36,9 @@ if sys.platform.startswith("linux"):
     import resource
 
     resource.setrlimit(resource.RLIMIT_NOFILE, (4096, resource.getrlimit(resource.RLIMIT_NOFILE)[1]))
+
+import seaborn as sns
+import matplotlib.pyplot as plt
 
 
 def main():
@@ -87,6 +92,13 @@ def main():
     eval_df = list(itertools.chain(*eval_df))
     eval_df = pd.DataFrame(eval_df, index=range(len(eval_df)))
     eval_df.to_excel(OSHelper.path_join(eval_save_dir, "eval.xlsx"))
+
+    _draw_boxplot(data=eval_df,
+                  x="class",
+                  y="DC",
+                  save_path=OSHelper.path_join(eval_save_dir, "dc.png"))
+
+
 
 
 def __inference(opt, image_dsize, inference_save_dir) -> None:
@@ -150,15 +162,26 @@ def _load_and_eval(pred_path, target_path, image_id, image_dsize) -> list[dict]:
             binary_label[0, 0] = 1
             binary_pred_label[-1, -1] = 1
             assd = EvaluationHelper.assd(binary_label, binary_pred_label)
-        data.append({"image_id": image_id, "class": TestDataset.LABEL_NAME_DICT[class_id], "metric": "DC", "value": dc})
-        data.append({"image_id": image_id, "class": TestDataset.LABEL_NAME_DICT[class_id], "metric": "ASSD", "value": assd})
+        data.append({"image_id": image_id, "class": TestDataset.LABEL_NAME_DICT[class_id], "DC": dc})
+        data.append({"image_id": image_id, "class": TestDataset.LABEL_NAME_DICT[class_id], "ASSD": assd})
         mean_dc += dc
         mean_assd += assd
     mean_dc /= len(TestDataset.LABEL_NAME_DICT)
     mean_assd /= len(TestDataset.LABEL_NAME_DICT)
-    data.append({"image_id": image_id, "class": "mean", "metric": "DC", "value": mean_dc})
-    data.append({"image_id": image_id, "class": "mean", "metric": "ASSD", "value": mean_assd})
+    data.append({"image_id": image_id, "class": "mean", "DC": mean_dc})
+    data.append({"image_id": image_id, "class": "mean", "ASSD": mean_assd})
     return data
+
+
+def _draw_boxplot(data, x, y, save_path: AnyStr, order=None, palette="Blues", figsize=None, dpi=180):
+    plt.clf()
+    fig = plt.figure(figsize=figsize)
+    ax = sns.boxplot(data=data, x=x, y=y, order=order, palette=palette, dodge=False)
+    plt.tight_layout()
+    plt.savefig(save_path, bbox_inches='tight', dpi=dpi)
+    plt.close(ax.figure)
+    plt.close(fig)
+    plt.close()
 
 
 if __name__ == '__main__':
