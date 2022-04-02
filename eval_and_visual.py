@@ -91,8 +91,6 @@ def main():
                                           desc="Evaluating")
     eval_df = list(itertools.chain(*eval_df))
     eval_df = pd.DataFrame(eval_df, index=range(len(eval_df)))
-    eval_df.sort_values(by="DC", ascending=False, inplace=True)
-    eval_df.reset_index(drop=True, inplace=True)
     eval_df.to_excel(OSHelper.path_join(eval_save_dir, "eval.xlsx"))
 
     _draw_boxplot(data=eval_df,
@@ -104,6 +102,8 @@ def main():
                   y="ASSD",
                   save_path=OSHelper.path_join(eval_save_dir, "assd.png"))
     eval_df = eval_df[eval_df["class"] == "Mean"]
+    eval_df.sort_values(by="DC", ascending=False, inplace=True)
+    eval_df.reset_index(drop=True, inplace=True)
     eval_df = eval_df.loc[[0, len(eval_df) // 2, len(eval_df) - 1]]
     for prefix, (_, row) in zip(["max", "median", "min"], eval_df.iterrows()):
         print(prefix)
