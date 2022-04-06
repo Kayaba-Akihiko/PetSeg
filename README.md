@@ -16,12 +16,19 @@ python train.py \
 --preload_dataset True
 ````
 Around 6 hours for finishing training.
-### Training monitor
+## Training monitor
+## Training loss
 ![alt text](figs/Train_Loss.png)
+##Test DC
 ![alt text](figs/Test_DC.png)
+## Test ASSD
 ![alt text](figs/Test_ASSD.png)
-Intermedia result of epoch 1, 2, and 3.
+## Intermedia result of epoch 1, 2, and 3.
 ![alt text](figs/intermedia_result.png)
+## Model Structure
+![alt text](figs/structure.png)
+## Model weights
+![alt text](figs/weights.png)
 
 ## Evaluate
 ````bash
