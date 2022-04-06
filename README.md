@@ -19,7 +19,7 @@ Around 6 hours for finishing training.
 ## Training monitor
 ## Training loss
 ![alt text](figs/Train_Loss.png)
-##Test DC
+## Test DC
 ![alt text](figs/Test_DC.png)
 ## Test ASSD
 ![alt text](figs/Test_ASSD.png)
