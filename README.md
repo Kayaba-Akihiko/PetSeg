@@ -6,6 +6,13 @@ Ubuntu 20.04 server
 Intel(R) Xeon(R) Gold 5220R CPU @ 2.20GHz  
 RTX A6000 48GB  
 RAM 256GB  
+docker: akihikokayaba/petseg
+
+python 3.10  
+pytorch 1.11+cu11.3  
+opencv  
+scipy  
+pillow 
 
 ## Train
 ````bash
