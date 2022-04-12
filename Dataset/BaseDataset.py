@@ -30,8 +30,8 @@ class BaseDataset(Dataset, ABC):
          "95a8c909bbe2e81eed6a22bccdf3f68f"),
     )
 
-    NORMALIZATION_MEAN = [0.456, 0.406, 0.485]  # (H, W, C)
-    NORMALIZATION_STD = [0.224, 0.225, 0.229]  # (H, W, C)
+    NORMALIZATION_MEAN = [0.485, 0.456, 0.406]
+    NORMALIZATION_STD = [0.229, 0.224, 0.225]
 
     LABEL_NAME_DICT = {0: "Foreground", 1: "Background", 2: "Not-classified"}
 
